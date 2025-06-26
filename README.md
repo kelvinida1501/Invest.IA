@@ -11,7 +11,7 @@
 
 Este documento apresenta a proposta de desenvolvimento do InvestIA, um sistema para acompanhamento de investimentos com o auxílio de uma Inteligência Artificial baseada em agentes com LangChain. O projeto busca oferecer ao usuário uma interface interativa para o controle de sua carteira de investimentos, além de fornecer dicas e orientações baseadas em seus dados e no mercado atual. O documento abrange desde o contexto e motivação, até especificações técnicas e cronograma futuro.
 
-## 1. Introdução
+## 1. Introdução - ####aprofunda todos os topicos####
 
 ### Contexto
 A crescente democratização do acesso a investimentos exige ferramentas que aliem simplicidade, inteligência e personalização. Muitos investidores iniciantes se sentem inseguros com plataformas convencionais, que carecem de orientação clara e suporte interpretativo sobre o desempenho de seus ativos.
