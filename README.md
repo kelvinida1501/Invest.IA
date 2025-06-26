@@ -62,7 +62,7 @@ Sistema inteligente de acompanhamento de investimentos, com painel visual e assi
 
 ### 3.2. Considerações de Design
 
-#### **Visão Inicial da Arquitetura**
+#### **Visão Inicial da Arquitetura** ###justificar casa uma das decisão ###
 
 O sistema será estruturado em três camadas principais:
 
