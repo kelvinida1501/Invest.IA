@@ -28,7 +28,8 @@ O projeto é relevante para a engenharia de software por integrar conceitos de s
 ## 2. Descrição do Projeto
 
 ### Tema do Projeto
-Sistema inteligente de acompanhamento de investimentos, com painel visual e assistente virtual baseado em IA.
+Sistema inteligente de acompanhamento de investimentos, com painel visual e assistente virtual baseado em IA. Além disso, o sistema contará com um módulo de análise automática de notícias, utilizando processamento de linguagem natural para detectar e classificar o sentimento de notícias relacionadas aos ativos da carteira do usuário. Esse recurso visa simplificar a interpretação do noticiário financeiro e fornecer contexto adicional para auxiliar nas decisões do investidor. A IA será responsável por identificar palavras-chave, extrair entidades relevantes e indicar o possível impacto das notícias.
+
 
 ### Problemas a Resolver
 - Dificuldade dos usuários em interpretar os dados de sua carteira.
@@ -50,15 +51,14 @@ Sistema inteligente de acompanhamento de investimentos, com painel visual e assi
 - **RF03**: Integrar com API de dados financeiros para cotações atualizadas.
 - **RF04**: Implementar chat com IA para análise da carteira.
 - **RF05**: Gerar dicas e sugestões com base nos dados do usuário.
+- **RF06**: Analisar automaticamente notícias relacionadas aos ativos da carteira e classificar seu impacto (positivo, negativo ou neutro) com uso de IA.
+
 
 #### Requisitos Não-Funcionais (RNF)
 - **RNF01**: A interface deve ser responsiva.
 - **RNF02**: A aplicação deve responder em até 2 segundos.
 - **RNF03**: Os dados devem ser armazenados de forma segura.
 - **RNF04**: O sistema deve suportar escalabilidade horizontal.
-
-#### Representação dos Requisitos
-Os Requisitos Funcionais serão representados por meio de um Diagrama de Casos de Uso (UML).
 
 ### 3.2. Considerações de Design
 
@@ -70,7 +70,7 @@ O sistema será estruturado em três camadas principais:
 
 - Back-end (Python + FastAPI)
 
-- Módulo IA (LangChain + GPT + ferramentas personalizadas)
+- - Módulo IA (LangChain + GPT + ferramentas personalizadas): responsável por gerar recomendações, analisar o desempenho da carteira e realizar a análise de sentimento em notícias do mercado relacionadas aos ativos registrados.
 
 #### **Padrões de Arquitetura**
 
@@ -86,7 +86,7 @@ O sistema será estruturado em três camadas principais:
 
 - Componentes: Painel visual, serviço de recomendação, orquestrador de agentes.
 
-- Código: Será documentado com diagramas de sequência e estrutura.
+- Código: Será documentado com diagramas de sequência e estrutura.2
 
 ### 3.3. Tecnologias Utilizadas
 
@@ -124,6 +124,7 @@ O sistema será estruturado em três camadas principais:
 - **Implementar sistema de autenticação e segurança.**
 - **Testar com usuários reais.**
 - **Publicar MVP online e documentar no GitHub.**
+- **Integrar sistema de análise de notícias com classificação de sentimento.**
 
 ## 5. Referências 
 
