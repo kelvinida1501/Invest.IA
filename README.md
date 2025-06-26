@@ -86,8 +86,6 @@ O sistema será estruturado em três camadas principais:
 
 - Componentes: Painel visual, serviço de recomendação, orquestrador de agentes.
 
-- Código: Será documentado com diagramas de sequência e estrutura.2
-
 ### 3.3. Tecnologias Utilizadas
 
 - **Linguagem de Programação**: Python (back-end), JavaScript (front-end)
