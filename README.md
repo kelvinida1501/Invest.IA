@@ -137,11 +137,11 @@ Este diagrama foca no contêiner "API Back-end", detalhando seus componentes int
 
 - Containerização: Docker, para garantir a consistência dos ambientes de desenvolvimento e produção e simplificar o deploy.
 
-- Controle de Versão: GitHub.
+- Controle de Versão: GitHub, selecionado por conta de sua vasta utilização em âmbito profissional.
 
-- Gestão de Projeto: Trello, para gestão ágil das tarefas.
+- Gestão de Projeto: Trello, para gestão ágil das tarefas, uma vez que sua interface gráfica e simplicidade auxiliam no desenvolvimento.
 
-- APIs Externas: Yahoo Finance ou similar, pela disponibilidade de um plano gratuito robusto para dados de mercado.
+- APIs Externas: Yahoo Finance, B3 ou similar, pela disponibilidade de um plano gratuito robusto para dados de mercado.
 
 ### 3.4. Considerações de Segurança
 
