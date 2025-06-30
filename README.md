@@ -9,43 +9,61 @@
 
 ## Resumo
 
-Este documento apresenta a proposta de desenvolvimento do InvestIA, um sistema para acompanhamento de investimentos com o auxílio de uma Inteligência Artificial baseada em agentes com LangChain. O projeto busca oferecer ao usuário uma interface interativa para o controle de sua carteira de investimentos, além de fornecer dicas e orientações baseadas em seus dados e no mercado atual. O documento abrange desde o contexto e motivação, até especificações técnicas e cronograma futuro.
+Este documento apresenta a proposta de desenvolvimento do InvestIA, um sistema para acompanhamento de investimentos com o auxílio de uma Inteligência Artificial baseada em agentes com LangChain. O projeto busca oferecer ao usuário uma interface interativa para o controle de sua carteira de investimentos, além de fornecer dicas e orientações baseadas em seus dados e no mercado atual. O documento abrange desde o contexto e motivação, até as especificações técnicas, arquitetura da solução e cronograma de desenvolvimento.
 
-## 1. Introdução - ####aprofunda todos os topicos####
+## 1. Introdução - 
 
-### Contexto
-A crescente democratização do acesso a investimentos exige ferramentas que aliem simplicidade, inteligência e personalização. Muitos investidores iniciantes se sentem inseguros com plataformas convencionais, que carecem de orientação clara e suporte interpretativo sobre o desempenho de seus ativos.
-### Justificativa
-O projeto é relevante para a engenharia de software por integrar conceitos de sistemas web, inteligência artificial baseada em LLMs e arquitetura escalável, aplicando práticas modernas de desenvolvimento como o uso de agentes inteligentes via LangChain. Trata-se de uma solução inovadora e didática, aplicável em contextos reais de mercado.
-### Objetivos
-- **Objetivo Principal**: Desenvolver uma aplicação web com suporte de IA para auxiliar usuários no acompanhamento de seus investimentos e na tomada de decisões financeiras.
-- **Objetivos Secundários**:
-  - Criar um agente conversacional com LangChain.
-  - Permitir o registro e visualização de ativos.
-  - Oferecer dicas personalizadas com base em análises automatizadas.
-  - Utilizar APIs de dados de mercado para obter informações atualizadas.
+### 1.1. Contexto
+O mercado financeiro brasileiro vivencia uma expansão sem precedentes no número de investidores individuais. Dados da B3 indicam que o número de pessoas físicas na bolsa ultrapassou a marca de 5 milhões, um público que, em grande parte, está em fase inicial de aprendizado. Este cenário de democratização expõe uma lacuna crítica: a carência de ferramentas que traduzam a complexidade do mercado para uma linguagem acessível. Investidores iniciantes frequentemente se deparam com o fenômeno da "infobesidade" (excesso de informação), sentindo-se inseguros com plataformas convencionais que, apesar de repletas de dados, carecem de orientação clara e suporte interpretativo sobre o desempenho de seus próprios ativos.
+
+### 1.2. Justificativa
+O desenvolvimento do InvestIA é relevante sob duas óticas principais: acadêmica e de engenharia de software.
+
+#### Relevância para a Engenharia de Software: O projeto integra conceitos avançados e atuais, como o desenvolvimento de sistemas web reativos, a aplicação de Inteligência Artificial via LLMs (Modelos de Linguagem Ampla) e a construção de uma arquitetura de microsserviços escalável. A utilização de frameworks como FastAPI e React, em conjunto com ferramentas como Docker e LangChain para orquestração de agentes inteligentes, posiciona o projeto na vanguarda das práticas de desenvolvimento modernas.
+
+#### Relevância Acadêmica e Inovação: A proposta inova ao ir além da tradicional análise de sentimento. Enquanto modelos como o FinBERT são eficazes na classificação de textos, a escolha por uma arquitetura baseada em LLM com LangChain permite a geração de resumos analíticos e insights contextuais, abordando o "porquê" por trás dos dados. O trabalho contribui academicamente ao explorar a engenharia de prompts e a orquestração de múltiplos agentes para resolver um problema prático no domínio financeiro, uma área de intensa pesquisa e desenvolvimento.
+
+### 1.3. Objetivos
+
+#### 1.3.1. Objetivo Principal
+Desenvolver uma aplicação web protótipo (MVP) com suporte de Inteligência Artificial para auxiliar usuários no acompanhamento de seus investimentos, fornecendo análises contextuais e simplificadas para apoiar a tomada de decisões financeiras.
+
+#### 1.3.2. Objetivos Secundários
+OE1: Projetar e implementar um agente conversacional com LangChain, capaz de responder a perguntas sobre o desempenho e a composição da carteira do usuário.
+
+OE2: Desenvolver um módulo de registro e visualização de ativos, permitindo que o usuário construa e acompanhe sua carteira de investimentos.
+
+OE3: Criar um sistema de análise de notícias que utilize PLN para extrair e classificar o sentimento de informações relevantes aos ativos do usuário.
+
+OE4: Integrar a aplicação com APIs de dados de mercado (ex: Yahoo Finance) para obter cotações e informações financeiras atualizadas.
+
+OE5: Estruturar a aplicação em uma arquitetura de serviços escalável, utilizando FastAPI para o back-end e React para o front-end.
 
 ## 2. Descrição do Projeto
 
-### Tema do Projeto
-Sistema inteligente de acompanhamento de investimentos, com painel visual e assistente virtual baseado em IA. Além disso, o sistema contará com um módulo de análise automática de notícias, utilizando processamento de linguagem natural para detectar e classificar o sentimento de notícias relacionadas aos ativos da carteira do usuário. Esse recurso visa simplificar a interpretação do noticiário financeiro e fornecer contexto adicional para auxiliar nas decisões do investidor. A IA será responsável por identificar palavras-chave, extrair entidades relevantes e indicar o possível impacto das notícias.
+### 2.1. Tema do Projeto
+Sistema inteligente de acompanhamento de investimentos, com painel visual e assistente virtual baseado em IA. O núcleo do sistema é seu módulo de análise automática de notícias, que utiliza processamento de linguagem natural para detectar e classificar o sentimento de notícias relacionadas aos ativos da carteira do usuário. Esse recurso visa simplificar a interpretação do noticiário financeiro e fornecer contexto adicional para auxiliar nas decisões do investidor. A IA será responsável por identificar palavras-chave, extrair entidades relevantes e indicar o possível impacto das notícias.
 
+### 2.2. Problemas a Resolver
+- Dificuldade dos usuários em interpretar os dados brutos de sua carteira.
 
-### Problemas a Resolver
-- Dificuldade dos usuários em interpretar os dados de sua carteira.
-- Falta de orientação personalizada em plataformas de investimento.
+- Falta de orientação personalizada e contextual em plataformas de investimento.
+
 - Excesso de informações técnicas não traduzidas para o usuário final.
 
-### Limitações
-- O sistema não fará recomendações de compra/venda com fins comerciais.
-- Não será implementada integração com corretoras para ordens de negociação.
-- O escopo se limita ao acompanhamento e análise de dados, sem movimentações financeiras reais.
+### 2.3. Limitações (Escopo Negativo)
+- O sistema não fará recomendações de compra/venda de ativos.
 
+- Não será implementada integração com corretoras para execução de ordens.
+
+- O escopo se limita ao acompanhamento e análise de dados, sem movimentações financeiras reais.
+  
 ## 3. Especificação Técnica
 
 ### 3.1. Requisitos de Software
 
-#### Requisitos Funcionais (RF)
+#### 3.1.1. Requisitos Funcionais (RF)
+
 - **RF01**: Permitir cadastro e remoção de ativos na carteira.
 - **RF02**: Exibir painel com gráficos de desempenho e alocação.
 - **RF03**: Integrar com API de dados financeiros para cotações atualizadas.
@@ -54,50 +72,73 @@ Sistema inteligente de acompanhamento de investimentos, com painel visual e assi
 - **RF06**: Analisar automaticamente notícias relacionadas aos ativos da carteira e classificar seu impacto (positivo, negativo ou neutro) com uso de IA.
 
 
-#### Requisitos Não-Funcionais (RNF)
+#### 3.1.2. Requisitos Não-Funcionais (RNF)
 - **RNF01**: A interface deve ser responsiva.
-- **RNF02**: A aplicação deve responder em até 2 segundos.
-- **RNF03**: Os dados devem ser armazenados de forma segura.
+- **RNF02**: O tempo de resposta para uma análise de IA não deve exceder 5 segundos.
+- **RNF03**: Os dados do usuário e de sua carteira devem ser armazenados de forma segura no banco de dados.
 - **RNF04**: O sistema deve suportar escalabilidade horizontal.
 
 ### 3.2. Considerações de Design
 
-#### **Visão Inicial da Arquitetura** ###justificar casa uma das decisão ###
+#### 3.2.1. Visão Geral e Padrões de Arquitetura
 
-O sistema será estruturado em três camadas principais:
+A solução será estruturada seguindo o padrão Arquitetura em N Camadas (N-Tier Architecture), com uma clara separação entre a camada de apresentação (Front-end), a camada de lógica de negócio (Back-end) e a camada de dados (Banco de Dados). Adicionalmente, a comunicação entre os serviços seguirá princípios da Arquitetura Orientada a Serviços (SOA), garantindo baixo acoplamento e alta coesão entre os componentes.
 
-- Front-end (React ou Streamlit)
+#### 3.2.2. Modelagem C4
 
-- Back-end (Python + FastAPI)
+Para detalhar a arquitetura, foi utilizado o Modelo C4, que permite a visualização do sistema em diferentes níveis de abstração.
 
-- - Módulo IA (LangChain + GPT + ferramentas personalizadas): responsável por gerar recomendações, analisar o desempenho da carteira e realizar a análise de sentimento em notícias do mercado relacionadas aos ativos registrados.
+- Nível 1: Contexto
+Este diagrama ilustra como o Sistema InvestIA interage com seus usuários e com outros sistemas no ambiente. Ele define os limites e as principais relações do sistema.
 
-#### **Padrões de Arquitetura**
+![C1](https://github.com/user-attachments/assets/db194816-1065-4c18-bd56-6665955fe833)
 
-- MVC no front-end.
 
-- Arquitetura Orientada a Serviços (SOA) para escalabilidade.
+- Nível 2: Contêineres
+Este diagrama detalha a estrutura interna do Sistema InvestIA, mostrando os principais blocos de construção tecnológicos (contêineres), como a aplicação front-end, a API back-end e o banco de dados.
 
-#### **Modelos C4**
+![C2](https://github.com/user-attachments/assets/f17ff4ae-5564-4c00-90c2-a0a26d7afb9e)
 
-- Contexto: Usuário interage com um sistema que orquestra IA, APIs e banco de dados.
 
-- Contêineres: Front-end, API REST, Módulo IA, Banco de Dados.
+- Nível 3: Componentes
+Este diagrama foca no contêiner "API Back-end", detalhando seus componentes internos e como eles colaboram para realizar as funcionalidades do sistema, como autenticação, gerenciamento da carteira e orquestração das análises de IA.
 
-- Componentes: Painel visual, serviço de recomendação, orquestrador de agentes.
+![C3](https://github.com/user-attachments/assets/725a0a64-aacf-4752-abf9-800f05ef1a90)
+
 
 ### 3.3. Tecnologias Utilizadas
 
-- **Linguagem de Programação**: Python (back-end), JavaScript (front-end)
-- **Framework e Bibliotecas**:
-  - FastAPI, React.js.
-  - LangChain, OpenAI SDK, Pandas, Matplotlib.
-- **Ferramentas de Desenvolvimento**:
-  - GitHub, Docker, VSCode.
-  - Trello ou Notion para gestão ágil.
-- **APIs externas**:
-  - Yahoo Finance, Alpha Vantage, ou similares.
+#### Linguagem de Programação (Back-end): Python
+  
+- Justificativa: Escolhido por ser a linguagem padrão da indústria para Inteligência Artificial e Ciência de Dados, oferecendo um ecossistema incomparável com bibliotecas como Pandas, NumPy e, crucialmente, LangChain. Sua sintaxe clara acelera o desenvolvimento.
+- Alternativas: Node.js foi considerado, mas o ecossistema de IA em Python é mais maduro e alinhado aos objetivos do projeto.
 
+#### Framework (Back-end): FastAPI
+
+- Justificativa: Selecionado por sua altíssima performance (comparável a Node.js e Go), suporte nativo a operações assíncronas (essencial para lidar com chamadas de API externas), e geração automática de documentação interativa (Swagger UI), o que otimiza o desenvolvimento e teste da API.
+- Alternativas: Django e Flask. FastAPI foi preferido sobre Django por ser mais leve e menos opinativo para a criação de APIs, e sobre Flask por oferecer validação de dados e suporte assíncrono de forma nativa.
+
+#### Framework (Front-end): React.js
+
+- Justificativa: Biblioteca líder para criação de interfaces de usuário ricas e dinâmicas (Single Page Applications). Sua arquitetura baseada em componentes facilita a manutenção e a escalabilidade da UI. Possui uma comunidade vasta e um ecossistema robusto.
+- Alternativas: Streamlit, Vue.js. React foi escolhido sobre Streamlit para permitir um maior controle sobre a personalização e a complexidade da UI.
+
+#### Orquestração de IA: LangChain
+
+- Justificativa: Ferramenta essencial para o desenvolvimento com LLMs. Em vez de uma implementação manual, LangChain fornece uma arquitetura robusta para criar "chains" e "agentes", gerenciar prompts, ferramentas externas (como a busca de notícias) e memória de conversação. Isso reduz o código repetitivo e organiza a lógica da IA de forma modular.
+- Alternativas: Implementação manual via SDK da OpenAI. LangChain foi preferido por abstrair a complexidade e promover uma arquitetura de IA mais limpa e extensível.
+
+#### Outras Ferramentas e Bibliotecas:
+
+- Banco de Dados: PostgreSQL, por sua robustez, confiabilidade (ACID) e escalabilidade.
+
+- Containerização: Docker, para garantir a consistência dos ambientes de desenvolvimento e produção e simplificar o deploy.
+
+- Controle de Versão: GitHub.
+
+- Gestão de Projeto: Trello, para gestão ágil das tarefas.
+
+- APIs Externas: Yahoo Finance ou similar, pela disponibilidade de um plano gratuito robusto para dados de mercado.
 
 ### 3.4. Considerações de Segurança
 
@@ -111,18 +152,6 @@ O sistema será estruturado em três camadas principais:
 ### 4.1 Portfólio I
 
 - **Finalizar definição do escopo e requisitos.**
-- **Criar primeira versão do protótipo funcional.**
-- **Implementar integração básica com API de dados financeiros.**
-- **Implementar primeira versão do agente com LangChain.**
-
-### 4.2 Portfólio II
-
-- **Aprofundar funcionalidades da IA.**
-- **Desenvolver sistema de geração de dicas automatizadas.**
-- **Implementar sistema de autenticação e segurança.**
-- **Testar com usuários reais.**
-- **Publicar MVP online e documentar no GitHub.**
-- **Integrar sistema de análise de notícias com classificação de sentimento.**
 
 ## 5. Referências 
 
