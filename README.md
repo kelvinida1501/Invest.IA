@@ -105,6 +105,9 @@ Este diagrama foca no contêiner "API Back-end", detalhando seus componentes int
 
 ![C3](https://github.com/user-attachments/assets/725a0a64-aacf-4752-abf9-800f05ef1a90)
 
+#### 3.2.3. Diagrama de Casos de Uso
+
+![Casos de Uso](https://github.com/user-attachments/assets/2a56c292-c882-4af4-a6dd-6ca0acd97841)
 
 ### 3.3. Tecnologias Utilizadas
 
