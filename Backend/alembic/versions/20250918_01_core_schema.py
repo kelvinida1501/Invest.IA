@@ -5,9 +5,9 @@ Revises: <COLOQUE_AQUI_O_HEAD_ATUAL_OU_USE_None>
 Create Date: 2025-09-18
 
 """
+
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # --- Ajuste aqui conforme seu histórico:
 revision = "20250918_01_core"
@@ -24,9 +24,10 @@ def upgrade():
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("email", sa.String(), nullable=False, unique=True),
         sa.Column("password_hash", sa.String(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")
+        ),
     )
-    
 
     # ASSETS (cadastro)
     op.create_table(
@@ -42,9 +43,16 @@ def upgrade():
     op.create_table(
         "portfolios",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "user_id",
+            sa.Integer(),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("name", sa.String(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")
+        ),
     )
     op.create_index("ix_portfolios_user", "portfolios", ["user_id"])
 
@@ -52,13 +60,29 @@ def upgrade():
     op.create_table(
         "holdings",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("portfolio_id", sa.Integer(), sa.ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("asset_id", sa.Integer(), sa.ForeignKey("assets.id", ondelete="RESTRICT"), nullable=False),
+        sa.Column(
+            "portfolio_id",
+            sa.Integer(),
+            sa.ForeignKey("portfolios.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "asset_id",
+            sa.Integer(),
+            sa.ForeignKey("assets.id", ondelete="RESTRICT"),
+            nullable=False,
+        ),
         sa.Column("quantity", sa.Float(), nullable=False),
         sa.Column("avg_price", sa.Float(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")),
-        sa.Column("updated_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")),
-        sa.UniqueConstraint("portfolio_id", "asset_id", name="uq_holdings_portfolio_asset"),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")
+        ),
+        sa.UniqueConstraint(
+            "portfolio_id", "asset_id", name="uq_holdings_portfolio_asset"
+        ),
     )
     op.create_index("ix_holdings_portfolio", "holdings", ["portfolio_id"])
     op.create_index("ix_holdings_asset", "holdings", ["asset_id"])
@@ -67,7 +91,12 @@ def upgrade():
     op.create_table(
         "asset_prices",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("asset_id", sa.Integer(), sa.ForeignKey("assets.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "asset_id",
+            sa.Integer(),
+            sa.ForeignKey("assets.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("date", sa.Date(), nullable=False),
         sa.Column("open", sa.Float(), nullable=True),
         sa.Column("high", sa.Float(), nullable=True),
@@ -94,30 +123,58 @@ def upgrade():
     op.create_table(
         "risk_profiles",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True),
-        sa.Column("profile", sa.String(), nullable=False),  # conservador|moderado|arrojado
+        sa.Column(
+            "user_id",
+            sa.Integer(),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            nullable=False,
+            unique=True,
+        ),
+        sa.Column(
+            "profile", sa.String(), nullable=False
+        ),  # conservador|moderado|arrojado
         sa.Column("score", sa.Integer(), nullable=False),
-        sa.Column("last_updated", sa.DateTime(timezone=False), server_default=sa.text("NOW()")),
+        sa.Column(
+            "last_updated", sa.DateTime(timezone=False), server_default=sa.text("NOW()")
+        ),
     )
 
     # CHAT (sessões/mensagens)
     op.create_table(
         "chat_sessions",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("started_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")),
+        sa.Column(
+            "user_id",
+            sa.Integer(),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "started_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")
+        ),
     )
     op.create_index("ix_chat_sessions_user", "chat_sessions", ["user_id"])
 
     op.create_table(
         "chat_messages",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("session_id", sa.Integer(), sa.ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "session_id",
+            sa.Integer(),
+            sa.ForeignKey("chat_sessions.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("role", sa.String(), nullable=False),  # user|assistant|system
         sa.Column("content", sa.Text(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")
+        ),
     )
-    op.create_index("ix_chat_messages_session_created", "chat_messages", ["session_id", "created_at"])
+    op.create_index(
+        "ix_chat_messages_session_created",
+        "chat_messages",
+        ["session_id", "created_at"],
+    )
 
 
 def downgrade():

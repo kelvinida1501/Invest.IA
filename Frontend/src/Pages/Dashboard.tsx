@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
-import api, { setAuthToken } from "../Api/ApiClient";
-import AssetsList from "../Components/AssetsList";
-import NewsList from "../Components/NewsList";
-import ChatBox from "../Components/Chatbox";
-import AllocationChart from "../Components/AllocationChart";
-import logo from "../Assets/LogoFull.svg";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from 'react';
+import api, { setAuthToken } from '../Api/ApiClient';
+import AssetsList from '../Components/AssetsList';
+import NewsList from '../Components/NewsList';
+import ChatBox from '../Components/Chatbox';
+import AllocationChart from '../Components/AllocationChart';
+import logo from '../Assets/LogoFull.svg';
+import { useNavigate } from 'react-router-dom';
 
 type User = { id: number; name: string; email: string };
 type Asset = {
@@ -35,7 +35,7 @@ export default function Dashboard() {
   }, [assets]);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem('token');
     setAuthToken(token ?? null);
 
     const load = async () => {
@@ -44,8 +44,8 @@ export default function Dashboard() {
       try {
         // CORREÇÃO: endpoint certo é /auth/me
         const [uRes, aRes] = await Promise.all([
-          api.get("/auth/me"),
-          api.get("/assets"),
+          api.get('/auth/me'),
+          api.get('/assets'),
         ]);
         setUser(uRes.data);
         setAssets(aRes.data);
@@ -53,7 +53,7 @@ export default function Dashboard() {
         const detail =
           err?.response?.data?.detail ||
           err?.message ||
-          "Falha ao carregar dados do dashboard.";
+          'Falha ao carregar dados do dashboard.';
         setError(detail);
       } finally {
         setLoading(false);
@@ -65,7 +65,7 @@ export default function Dashboard() {
 
   const refreshAssets = async () => {
     try {
-      const res = await api.get("/assets");
+      const res = await api.get('/assets');
       setAssets(res.data);
     } catch (err) {
       // Mantém UX silenciosa; se quiser, exiba um toast
@@ -75,15 +75,15 @@ export default function Dashboard() {
 
   const handleLogout = () => {
     setAuthToken(null); // limpa Authorization + localStorage
-    window.dispatchEvent(new Event("auth-changed")); // força AppRouter a reavaliar token
-    navigate("/login", { replace: true });
+    window.dispatchEvent(new Event('auth-changed')); // força AppRouter a reavaliar token
+    navigate('/login', { replace: true });
   };
 
   if (loading) {
     return (
       <div className="page">
         <header className="header">
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <img src={logo} alt="InvestIA" style={{ height: 40 }} />
             <h1>InvestIA</h1>
           </div>
@@ -93,7 +93,7 @@ export default function Dashboard() {
         <main className="grid">
           <section className="card">
             <h2>Carregando dados...</h2>
-            <p style={{ color: "#666" }}>
+            <p style={{ color: '#666' }}>
               Buscando sua carteira, usuário e notícias.
             </p>
           </section>
@@ -106,7 +106,7 @@ export default function Dashboard() {
     return (
       <div className="page">
         <header className="header">
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <img src={logo} alt="InvestIA" style={{ height: 40 }} />
             <h1>InvestIA</h1>
           </div>
@@ -120,7 +120,7 @@ export default function Dashboard() {
         <main className="grid">
           <section className="card">
             <h2>Algo deu errado</h2>
-            <p style={{ color: "#d33" }}>{error}</p>
+            <p style={{ color: '#d33' }}>{error}</p>
             <button onClick={() => window.location.reload()}>Tentar novamente</button>
           </section>
         </main>
@@ -131,15 +131,15 @@ export default function Dashboard() {
   return (
     <div className="page">
       <header className="header">
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <img src={logo} alt="InvestIA" style={{ height: 40 }} />
           <h1>InvestIA</h1>
         </div>
 
-        <div className="header-right" style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <div className="header-right" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           {user && (
             <div className="user-pill" title={user.email}>
-              <div className="avatar">{user.name?.[0]?.toUpperCase() ?? "U"}</div>
+              <div className="avatar">{user.name?.[0]?.toUpperCase() ?? 'U'}</div>
               <span>Olá, {user.name}</span>
             </div>
           )}
@@ -152,9 +152,9 @@ export default function Dashboard() {
         <div className="kpi-card">
           <div className="kpi-label">Valor da Carteira</div>
           <div className="kpi-value">
-            {totalValue.toLocaleString("pt-BR", {
-              style: "currency",
-              currency: "BRL",
+            {totalValue.toLocaleString('pt-BR', {
+              style: 'currency',
+              currency: 'BRL',
               maximumFractionDigits: 2,
             })}
           </div>

@@ -11,14 +11,20 @@ from app.db.models import User
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 # === JWT config ===
-SECRET_KEY = os.getenv("JWT_SECRET", "dev-secret")  # defina JWT_SECRET no .env se quiser
+SECRET_KEY = os.getenv(
+    "JWT_SECRET", "dev-secret"
+)  # defina JWT_SECRET no .env se quiser
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 dias
 
-def create_access_token(*, subject: str, expires_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES) -> str:
+
+def create_access_token(
+    *, subject: str, expires_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES
+) -> str:
     expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
     to_encode = {"sub": subject, "exp": expire}
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
 
 # === Schemas ===
 class RegisterRequest(BaseModel):
@@ -26,19 +32,25 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
 
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
 
 # === Helpers de senha ===
 def hash_password(pw: str) -> str:
     return bcrypt.hash(pw)
 
+
 def verify_password(pw: str, hash_: str) -> bool:
     return bcrypt.verify(pw, hash_)
 
+
 # === Dependência: extrai usuário do token ===
-def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> User:
+def get_current_user(
+    authorization: str = Header(None), db: Session = Depends(get_db)
+) -> User:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token inválido")
     token = authorization.split(" ", 1)[1]
@@ -56,6 +68,7 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
         raise HTTPException(status_code=401, detail="Token expirado")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Token inválido")
+
 
 # === Rotas ===
 @router.post("/register")
@@ -78,6 +91,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     token = create_access_token(subject=str(u.id))
     return {"ok": True, "access_token": token, "token_type": "bearer"}
 
+
 @router.post("/login")
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     email = body.email.strip().lower()
@@ -87,6 +101,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 
     token = create_access_token(subject=str(user.id))
     return {"access_token": token, "token_type": "bearer"}
+
 
 @router.get("/me")
 def me(current_user: User = Depends(get_current_user)):

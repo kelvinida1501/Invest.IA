@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import api from "../Api/ApiClient";
+import React, { useMemo, useState } from 'react';
+import api from '../Api/ApiClient';
 
 type Asset = {
   id: number;
@@ -16,25 +16,25 @@ type Props = {
 };
 
 const formatCurrency = (v: number) =>
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
+  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 });
 
 export default function AssetsList({ assets, onRefresh }: Props) {
-  const [symbol, setSymbol] = useState("");
-  const [name, setName] = useState("");
-  const [cls, setCls] = useState<Asset["class"]>("acao");
+  const [symbol, setSymbol] = useState('');
+  const [name, setName] = useState('');
+  const [cls, setCls] = useState<Asset['class']>('acao');
   const [submitting, setSubmitting] = useState(false);
 
   const handleAdd = async () => {
     if (!symbol.trim() || !name.trim()) return;
     setSubmitting(true);
     try {
-      await api.post("/assets", {
+      await api.post('/assets', {
         symbol: symbol.trim().toUpperCase(),
         name: name.trim(),
         class: cls,
       });
-      setSymbol("");
-      setName("");
+      setSymbol('');
+      setName('');
       onRefresh();
     } finally {
       setSubmitting(false);
@@ -70,7 +70,7 @@ export default function AssetsList({ assets, onRefresh }: Props) {
           <option value="renda_fixa">Renda Fixa</option>
         </select>
         <button className="btn btn-primary" onClick={handleAdd} disabled={submitting}>
-          {submitting ? "Adicionando..." : "Adicionar"}
+          {submitting ? 'Adicionando...' : 'Adicionar'}
         </button>
       </div>
 
@@ -100,9 +100,9 @@ export default function AssetsList({ assets, onRefresh }: Props) {
                   <td>{a.symbol}</td>
                   <td>{a.name}</td>
                   <td>{a.class}</td>
-                  <td>{a.quantity ?? "-"}</td>
-                  <td>{a.last_price != null ? formatCurrency(a.last_price) : "-"}</td>
-                  <td>{total ? formatCurrency(total) : "-"}</td>
+                  <td>{a.quantity ?? '-'}</td>
+                  <td>{a.last_price != null ? formatCurrency(a.last_price) : '-'}</td>
+                  <td>{total ? formatCurrency(total) : '-'}</td>
                 </tr>
               );
             })}

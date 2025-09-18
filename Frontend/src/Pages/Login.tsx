@@ -1,19 +1,19 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { AuthApi } from "../Api/ApiClient";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from 'react';
+import { AuthApi } from '../Api/ApiClient';
+import { useNavigate } from 'react-router-dom';
 
-import LogoFull from "../Assets/LogoFull.svg";
+import LogoFull from '../Assets/LogoFull.svg';
 
-type Mode = "login" | "register";
+type Mode = 'login' | 'register';
 
 export default function Login() {
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState<Mode>("login");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirm, setConfirm] = useState("");
+  const [mode, setMode] = useState<Mode>('login');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [showPass, setShowPass] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -22,11 +22,11 @@ export default function Login() {
   const isEmailValid = useMemo(() => /\S+@\S+\.\S+/.test(email), [email]);
   const isPasswordOk = useMemo(() => password.trim().length >= 6, [password]);
   const isConfirmOk = useMemo(
-    () => mode === "login" || password === confirm,
+    () => mode === 'login' || password === confirm,
     [mode, password, confirm]
   );
   const formValid =
-    mode === "login"
+    mode === 'login'
       ? isEmailValid && isPasswordOk
       : isEmailValid && isPasswordOk && isConfirmOk && name.trim().length >= 2;
 
@@ -36,8 +36,8 @@ export default function Login() {
 
   // se já houver token, pula direto
   useEffect(() => {
-    const t = localStorage.getItem("token");
-    if (t) navigate("/dashboard", { replace: true });
+    const t = localStorage.getItem('token');
+    if (t) navigate('/dashboard', { replace: true });
   }, [navigate]);
 
   const handleLogin = async () => {
@@ -56,30 +56,30 @@ export default function Login() {
     setError(null);
     try {
       const data =
-        mode === "login" ? await handleLogin() : await handleRegister();
+        mode === 'login' ? await handleLogin() : await handleRegister();
 
       // se registrou e não veio token, tenta logar em seguida
       let token = (data as any)?.access_token;
-      if (mode === "register" && !token) {
+      if (mode === 'register' && !token) {
         const after = await AuthApi.login(email, password);
         token = after?.access_token;
       }
 
       if (!token) {
-        throw new Error("Login não retornou access_token");
+        throw new Error('Login não retornou access_token');
       }
 
       // avisa o AppRouter que o token mudou
-      window.dispatchEvent(new Event("auth-changed"));
+      window.dispatchEvent(new Event('auth-changed'));
 
       // redireciona
-      navigate("/dashboard", { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
       const detail =
         err?.response?.data?.detail ||
         err?.response?.data?.message ||
         err?.message ||
-        "Ocorreu um erro. Tente novamente.";
+        'Ocorreu um erro. Tente novamente.';
       setError(detail);
     } finally {
       setLoading(false);
@@ -97,22 +97,22 @@ export default function Login() {
         <div className="tabs">
           <button
             type="button"
-            className={`tab ${mode === "login" ? "active" : ""}`}
-            onClick={() => setMode("login")}
+            className={`tab ${mode === 'login' ? 'active' : ''}`}
+            onClick={() => setMode('login')}
           >
             Entrar
           </button>
           <button
             type="button"
-            className={`tab ${mode === "register" ? "active" : ""}`}
-            onClick={() => setMode("register")}
+            className={`tab ${mode === 'register' ? 'active' : ''}`}
+            onClick={() => setMode('register')}
           >
             Registrar
           </button>
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
-          {mode === "register" && (
+          {mode === 'register' && (
             <>
               <label htmlFor="name">Nome</label>
               <input
@@ -141,24 +141,24 @@ export default function Login() {
           <div className="password-field">
             <input
               id="password"
-              type={showPass ? "text" : "password"}
+              type={showPass ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             />
             <button
               type="button"
               className="ghost"
               onClick={() => setShowPass((s) => !s)}
             >
-              {showPass ? "Ocultar" : "Mostrar"}
+              {showPass ? 'Ocultar' : 'Mostrar'}
             </button>
           </div>
           {!isPasswordOk && (
             <small className="hint">Mínimo de 6 caracteres.</small>
           )}
 
-          {mode === "register" && (
+          {mode === 'register' && (
             <>
               <label htmlFor="confirm">Confirmar senha</label>
               <input
@@ -181,12 +181,12 @@ export default function Login() {
               className="primary"
             >
               {loading
-                ? mode === "login"
-                  ? "Entrando..."
-                  : "Registrando..."
-                : mode === "login"
-                ? "Entrar"
-                : "Criar conta"}
+                ? mode === 'login'
+                  ? 'Entrando...'
+                  : 'Registrando...'
+                : mode === 'login'
+                ? 'Entrar'
+                : 'Criar conta'}
             </button>
           </div>
 
@@ -196,11 +196,11 @@ export default function Login() {
             <button
               type="button"
               className="link"
-              onClick={() => setMode(mode === "login" ? "register" : "login")}
+              onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
             >
-              {mode === "login"
-                ? "Não tem conta? Registre-se"
-                : "Já tem conta? Entrar"}
+              {mode === 'login'
+                ? 'Não tem conta? Registre-se'
+                : 'Já tem conta? Entrar'}
             </button>
           </div>
         </form>

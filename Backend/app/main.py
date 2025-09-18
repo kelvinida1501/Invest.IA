@@ -27,6 +27,7 @@ app.include_router(news_router, prefix=API_PREFIX)
 app.include_router(risk_router, prefix=API_PREFIX)
 app.include_router(chat_router, prefix=API_PREFIX)
 
+
 @app.get("/health")
 def health():
     return {"ok": True}

@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import React, { useMemo } from 'react';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 type Asset = {
   id: number;
@@ -12,17 +12,17 @@ type Asset = {
 
 type Props = { assets: Asset[] };
 
-const COLORS = ["#f0b90b", "#4cafef", "#66bb6a", "#ef5350", "#ab47bc", "#29b6f6", "#ffa726", "#26a69a", "#7e57c2"];
+const COLORS = ['#f0b90b', '#4cafef', '#66bb6a', '#ef5350', '#ab47bc', '#29b6f6', '#ffa726', '#26a69a', '#7e57c2'];
 
 const formatCurrency = (v: number) =>
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
+  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 });
 
 export default function AllocationChart({ assets }: Props) {
   const data = useMemo(() => {
     if (!assets?.length) return [];
 
     const raw = assets.map((a) => ({
-      name: a.symbol || "—",
+      name: a.symbol || '—',
       value: (a.quantity ?? 1) * (a.last_price ?? 1),
     }));
 
@@ -38,7 +38,7 @@ export default function AllocationChart({ assets }: Props) {
     const minor = ordered.filter((x) => x.pct < 3);
     const othersValue = minor.reduce((s, r) => s + r.value, 0);
 
-    return othersValue > 0 ? [...major, { name: "Outros", value: othersValue, pct: (othersValue / total) * 100 }] : major;
+    return othersValue > 0 ? [...major, { name: 'Outros', value: othersValue, pct: (othersValue / total) * 100 }] : major;
   }, [assets]);
 
   if (!assets || assets.length === 0) return <p>Nenhum ativo para exibir.</p>;
@@ -47,10 +47,10 @@ export default function AllocationChart({ assets }: Props) {
     if (!active || !payload?.length) return null;
     const { name, value, pct } = payload[0]?.payload || {};
     return (
-      <div style={{ background: "#fff", border: "1px solid #eee", padding: 8, borderRadius: 6 }}>
+      <div style={{ background: '#fff', border: '1px solid #eee', padding: 8, borderRadius: 6 }}>
         <div><b>{name}</b></div>
         <div>Valor: {formatCurrency(value ?? 0)}</div>
-        <div>Alocação: {pct ? pct.toFixed(2) : "0"}%</div>
+        <div>Alocação: {pct ? pct.toFixed(2) : '0'}%</div>
       </div>
     );
   };

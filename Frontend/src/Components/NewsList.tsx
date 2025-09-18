@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
-import api from "../Api/ApiClient";
+import React, { useEffect, useMemo, useState } from 'react';
+import api from '../Api/ApiClient';
 
 type News = {
   id: number;
   title: string;
   url: string;
   published_at?: string; // ISO
-  sentiment?: "positivo" | "negativo" | "neutro" | string;
+  sentiment?: 'positivo' | 'negativo' | 'neutro' | string;
 };
 
 export default function NewsList() {
@@ -14,7 +14,7 @@ export default function NewsList() {
 
   useEffect(() => {
     let alive = true;
-    api.get("/news").then((r) => {
+    api.get('/news').then((r) => {
       if (!alive) return;
       setNews(r.data);
     }).catch(() => setNews([]));
@@ -31,21 +31,21 @@ export default function NewsList() {
   }, [news]);
 
   const formatDate = (iso?: string) => {
-    if (!iso) return "—";
+    if (!iso) return '—';
     const d = new Date(iso);
     if (isNaN(d.getTime())) return iso;
-    return d.toLocaleString("pt-BR");
+    return d.toLocaleString('pt-BR');
   };
 
   const Sentiment = ({ s }: { s?: string }) => {
-    const norm = (s || "—").toLowerCase();
+    const norm = (s || '—').toLowerCase();
     const color =
-      norm.includes("positivo") ? "#2e7d32" :
-      norm.includes("negativo") ? "#c62828" :
-      "#616161";
+      norm.includes('positivo') ? '#2e7d32' :
+      norm.includes('negativo') ? '#c62828' :
+      '#616161';
     return (
       <span style={{ color, fontWeight: 600 }}>
-        {s ?? "—"}
+        {s ?? '—'}
       </span>
     );
   };
@@ -56,8 +56,8 @@ export default function NewsList() {
       <div>
         {[...Array(4)].map((_, i) => (
           <div key={i} style={{ marginBottom: 10 }}>
-            <div style={{ height: 12, background: "#eee", width: "80%", borderRadius: 6 }} />
-            <div style={{ height: 10, background: "#f3f3f3", width: "40%", marginTop: 6, borderRadius: 6 }} />
+            <div style={{ height: 12, background: '#eee', width: '80%', borderRadius: 6 }} />
+            <div style={{ height: 10, background: '#f3f3f3', width: '40%', marginTop: 6, borderRadius: 6 }} />
           </div>
         ))}
       </div>
@@ -70,13 +70,13 @@ export default function NewsList() {
 
   return (
     <div>
-      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {items.map((n) => (
           <li key={n.id} style={{ marginBottom: 10 }}>
             <a href={n.url} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>
               {n.title}
             </a>
-            <div style={{ fontSize: 12, color: "#666" }}>
+            <div style={{ fontSize: 12, color: '#666' }}>
               {formatDate(n.published_at)} — impacto: <Sentiment s={n.sentiment} />
             </div>
           </li>
