@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+pydantic
+python-multipart
+black
+flake8
+sqlalchemy
+alembic
+psycopg2-binary
+python-dotenv
+passlib[bcrypt]==1.7.4
+email-validator==2.1.0.post1
+bcrypt==4.0.1
+PyJWT==2.8.0
+

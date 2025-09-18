@@ -1,0 +1,36 @@
+services:
+  backend:
+    build: ./Backend
+    container_name: investia-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./Backend:/app           
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://postgres:postgres@db:5432/investia
+    depends_on:
+      - db
+
+  frontend:
+    build: ./Frontend
+    container_name: investia-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+  db:
+    image: postgres:15-alpine
+    container_name: investia-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: investia
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

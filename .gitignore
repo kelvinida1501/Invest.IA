@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+.venv/
+
+# Alembic
+alembic/versions/*.pyc
+
+# Node
+node_modules/
+dist/
+build/
+
+# Logs
+*.log
+
+# Docker volumes
+pgdata/
+
+# IDE / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
