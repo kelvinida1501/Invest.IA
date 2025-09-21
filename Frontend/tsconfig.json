@@ -6,9 +6,10 @@
     "module": "ESNext",
     "moduleResolution": "Node",
     "strict": true,
+    "types": ["vite/client"],
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src"]
+  "include": ["src", "src/**/*.d.ts"]
 }

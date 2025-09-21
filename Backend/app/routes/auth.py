@@ -1,76 +1,62 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
-from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
+from jose import JWTError, jwt
 from passlib.hash import bcrypt
-import os
-import jwt  # PyJWT
+from pydantic import BaseModel
+
 from app.db.base import get_db
 from app.db.models import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# === JWT config ===
-SECRET_KEY = os.getenv(
-    "JWT_SECRET", "dev-secret"
-)  # defina JWT_SECRET no .env se quiser
+# Config simples (em produção usar env vars)
+SECRET_KEY = "dev-secret"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 dias
-
-
-def create_access_token(
-    *, subject: str, expires_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES
-) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
-    to_encode = {"sub": subject, "exp": expire}
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-
-# === Schemas ===
-class RegisterRequest(BaseModel):
-    name: str
-    email: EmailStr
-    password: str
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
-# === Helpers de senha ===
-def hash_password(pw: str) -> str:
-    return bcrypt.hash(pw)
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str
 
 
-def verify_password(pw: str, hash_: str) -> bool:
-    return bcrypt.verify(pw, hash_)
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (
+        expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-# === Dependência: extrai usuário do token ===
 def get_current_user(
     authorization: str = Header(None), db: Session = Depends(get_db)
 ) -> User:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token inválido")
-    token = authorization.split(" ", 1)[1]
+
+    token = authorization.split(" ")[1]
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        sub = payload.get("sub")
-        if not sub:
+        user_id: str | None = payload.get("sub")  # type: ignore[assignment]
+        if user_id is None:
             raise HTTPException(status_code=401, detail="Token inválido")
-        # 'sub' é o id do usuário (string)
-        user = db.query(User).filter(User.id == int(sub)).first()
-        if not user:
-            raise HTTPException(status_code=401, detail="Usuário não encontrado")
-        return user
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expirado")
-    except jwt.InvalidTokenError:
+    except JWTError:
         raise HTTPException(status_code=401, detail="Token inválido")
 
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    return user
 
-# === Rotas ===
+
 @router.post("/register")
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
     email = body.email.strip().lower()
@@ -80,26 +66,22 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     u = User(
         name=body.name.strip(),
         email=email,
-        password_hash=hash_password(body.password),
+        password_hash=bcrypt.hash(body.password),
         created_at=datetime.utcnow(),
     )
     db.add(u)
     db.commit()
     db.refresh(u)
-
-    # opcional: já autenticar após cadastro
-    token = create_access_token(subject=str(u.id))
-    return {"ok": True, "access_token": token, "token_type": "bearer"}
+    return {"ok": True}
 
 
 @router.post("/login")
 def login(body: LoginRequest, db: Session = Depends(get_db)):
-    email = body.email.strip().lower()
-    user = db.query(User).filter(User.email == email).first()
-    if not user or not verify_password(body.password, user.password_hash):
+    user = db.query(User).filter(User.email == body.email.lower()).first()
+    if not user or not bcrypt.verify(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
 
-    token = create_access_token(subject=str(user.id))
+    token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer"}
 
 

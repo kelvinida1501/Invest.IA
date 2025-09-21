@@ -1,79 +1,47 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// Se VITE_API_URL não vier, usa "/api" (que o Nginx proxyia).
+const API_BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
 
-// instancia global
-const api = axios.create({
-  baseURL: API_BASE,
-  headers: { 'Content-Type': 'application/json' },
+const api = axios.create({ baseURL: API_BASE });
+
+// Header Authorization em toda request (inclusive após F5)
+api.interceptors.request.use((cfg) => {
+  const t = localStorage.getItem('token');
+  if (t) cfg.headers.Authorization = `Bearer ${t}`;
+  return cfg;
 });
 
-// helper para setar token
-export function setAuthToken(token: string | null) {
-  if (token) {
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    localStorage.setItem('token', token);
-  } else {
-    delete api.defaults.headers.common['Authorization'];
+export function setAuthToken(token?: string) {
+  if (!token) {
     localStorage.removeItem('token');
+    delete (api.defaults.headers as any).Authorization;
+  } else {
+    localStorage.setItem('token', token);
+    (api.defaults.headers as any).Authorization = `Bearer ${token}`;
   }
 }
 
-// tipos de resposta
-export interface LoginResponse {
-  access_token: string;
-  token_type?: string;
-}
-
-export interface RegisterResponse {
-  ok: boolean;
-  access_token?: string;
-}
-
-// métodos auth
 export const AuthApi = {
-  login: async (email: string, password: string): Promise<LoginResponse> => {
-    const res = await api.post<LoginResponse>('/auth/login', { email, password });
-    if (res.data.access_token) {
-      setAuthToken(res.data.access_token);
-    }
-    return res.data;
+  async login(email: string, password: string) {
+    const { data } = await api.post('/auth/login', { email, password });
+    setAuthToken(data.access_token);
+    window.dispatchEvent(new Event('auth-changed'));
+    return data;
   },
 
-  register: async (name: string, email: string, password: string): Promise<RegisterResponse> => {
-    const res = await api.post<RegisterResponse>('/auth/register', {
-      name,
-      email,
-      password,
-    });
-    if ((res.data as any).access_token) {
-      setAuthToken((res.data as any).access_token);
-    }
-    return res.data;
+  async register(name: string, email: string, password: string) {
+    const { data } = await api.post('/auth/register', { name, email, password });
+    return data;
   },
 
-  me: async () => {
-    const res = await api.get('/auth/me');
-    return res.data;
+  me() {
+    return api.get('/auth/me');
   },
-};
 
-// outros módulos (exemplo)
-export const NewsApi = {
-  list: async () => {
-    const res = await api.get('/news');
-    return res.data;
-  },
-};
-
-export const AssetsApi = {
-  list: async () => {
-    const res = await api.get('/assets');
-    return res.data;
-  },
-  add: async (symbol: string, name: string, cls: string) => {
-    const res = await api.post('/assets', { symbol, name, class: cls });
-    return res.data;
+  logout() {
+    setAuthToken(undefined);
+    window.dispatchEvent(new Event('auth-changed'));
   },
 };
 

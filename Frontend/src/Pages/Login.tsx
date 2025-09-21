@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AuthApi } from '../Api/ApiClient';
 import { useNavigate } from 'react-router-dom';
-
 import LogoFull from '../Assets/LogoFull.svg';
 
 type Mode = 'login' | 'register';
@@ -11,8 +10,8 @@ export default function Login() {
 
   const [mode, setMode] = useState<Mode>('login');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('user@example.com');
+  const [password, setPassword] = useState('password');
   const [confirm, setConfirm] = useState('');
   const [showPass, setShowPass] = useState(false);
 
@@ -34,51 +33,24 @@ export default function Login() {
     setError(null);
   }, [mode, email, password, confirm, name]);
 
-  // se já houver token, pula direto
-  useEffect(() => {
-    const t = localStorage.getItem('token');
-    if (t) navigate('/dashboard', { replace: true });
-  }, [navigate]);
-
-  const handleLogin = async () => {
-    return await AuthApi.login(email, password);
-  };
-
-  const handleRegister = async () => {
-    return await AuthApi.register(name, email, password);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formValid) return;
+    if (!formValid || loading) return;
 
     setLoading(true);
     setError(null);
     try {
-      const data =
-        mode === 'login' ? await handleLogin() : await handleRegister();
-
-      // se registrou e não veio token, tenta logar em seguida
-      let token = (data as any)?.access_token;
-      if (mode === 'register' && !token) {
-        const after = await AuthApi.login(email, password);
-        token = after?.access_token;
+      if (mode === 'login') {
+        await AuthApi.login(email, password);
+      } else {
+        await AuthApi.register(name, email, password);
+        await AuthApi.login(email, password); // auto login
       }
-
-      if (!token) {
-        throw new Error('Login não retornou access_token');
-      }
-
-      // avisa o AppRouter que o token mudou
-      window.dispatchEvent(new Event('auth-changed'));
-
-      // redireciona
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
       const detail =
         err?.response?.data?.detail ||
         err?.response?.data?.message ||
-        err?.message ||
         'Ocorreu um erro. Tente novamente.';
       setError(detail);
     } finally {
@@ -133,9 +105,6 @@ export default function Login() {
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
           />
-          {!isEmailValid && (
-            <small className="hint">Informe um email válido.</small>
-          )}
 
           <label htmlFor="password">Senha</label>
           <div className="password-field">
@@ -154,9 +123,6 @@ export default function Login() {
               {showPass ? 'Ocultar' : 'Mostrar'}
             </button>
           </div>
-          {!isPasswordOk && (
-            <small className="hint">Mínimo de 6 caracteres.</small>
-          )}
 
           {mode === 'register' && (
             <>
@@ -168,9 +134,6 @@ export default function Login() {
                 onChange={(e) => setConfirm(e.target.value)}
                 autoComplete="new-password"
               />
-              {!isConfirmOk && (
-                <small className="hint">As senhas não conferem.</small>
-              )}
             </>
           )}
 
@@ -191,18 +154,6 @@ export default function Login() {
           </div>
 
           {error && <p className="error">{error}</p>}
-
-          <div className="footer-links">
-            <button
-              type="button"
-              className="link"
-              onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-            >
-              {mode === 'login'
-                ? 'Não tem conta? Registre-se'
-                : 'Já tem conta? Entrar'}
-            </button>
-          </div>
         </form>
       </div>
     </div>
