@@ -1,196 +1,143 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import api, { setAuthToken } from '../Api/ApiClient';
-import AssetsList from '../Components/AssetsList';
 import NewsList from '../Components/NewsList';
 import ChatBox from '../Components/Chatbox';
-import AllocationChart from '../Components/AllocationChart';
 import logo from '../Assets/LogoFull.svg';
-import { useNavigate } from 'react-router-dom';
-
-type User = { id: number; name: string; email: string };
-type Asset = {
-  id: number;
-  symbol: string;
-  name: string;
-  class: string;
-  quantity?: number;
-  last_price?: number;
-};
+import AllocationChart from '../Components/AllocationChart';
+import HoldingsList from '../Components/HoldingsList';
+import RiskPanel from '../Components/RiskPanel';
+import RebalancePanel from '../Components/RebalancePanel';
 
 export default function Dashboard() {
-  const navigate = useNavigate();
-
-  const [user, setUser] = useState<User | null>(null);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // total e % alocação (exibe em cards/header)
-  const totalValue = useMemo(() => {
-    if (!assets?.length) return 0;
-    return assets.reduce(
-      (sum, a) => sum + (a.quantity ?? 1) * (a.last_price ?? 1),
-      0
-    );
-  }, [assets]);
+  const [portfolio, setPortfolio] = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    setAuthToken(token ?? null);
+    setAuthToken(token ?? undefined);
 
-    const load = async () => {
-      setLoading(true);
-      setError(null);
+    async function load() {
       try {
-        // CORREÇÃO: endpoint certo é /auth/me
-        const [uRes, aRes] = await Promise.all([
+        const [uRes, pRes] = await Promise.all([
           api.get('/auth/me'),
-          api.get('/assets'),
+          api.get('/portfolio/summary'),
         ]);
         setUser(uRes.data);
-        setAssets(aRes.data);
-      } catch (err: any) {
-        const detail =
-          err?.response?.data?.detail ||
-          err?.message ||
-          'Falha ao carregar dados do dashboard.';
-        setError(detail);
-      } finally {
-        setLoading(false);
+        setPortfolio(pRes.data);
+      } catch (err) {
+        console.error('Erro ao carregar dashboard:', err);
       }
-    };
+    }
 
     load();
   }, []);
 
-  const refreshAssets = async () => {
+  const refreshPortfolio = async () => {
     try {
-      const res = await api.get('/assets');
-      setAssets(res.data);
+      const res = await api.get('/portfolio/summary');
+      setPortfolio(res.data);
     } catch (err) {
-      // Mantém UX silenciosa; se quiser, exiba um toast
-      console.error(err);
+      console.error('Erro ao atualizar portfolio:', err);
     }
   };
 
   const handleLogout = () => {
-    setAuthToken(null); // limpa Authorization + localStorage
-    window.dispatchEvent(new Event('auth-changed')); // força AppRouter a reavaliar token
-    navigate('/login', { replace: true });
+    localStorage.removeItem('token');
+    setAuthToken();
+    window.location.href = '/login';
   };
-
-  if (loading) {
-    return (
-      <div className="page">
-        <header className="header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <img src={logo} alt="InvestIA" style={{ height: 40 }} />
-            <h1>InvestIA</h1>
-          </div>
-          <div />
-        </header>
-
-        <main className="grid">
-          <section className="card">
-            <h2>Carregando dados...</h2>
-            <p style={{ color: '#666' }}>
-              Buscando sua carteira, usuário e notícias.
-            </p>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="page">
-        <header className="header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <img src={logo} alt="InvestIA" style={{ height: 40 }} />
-            <h1>InvestIA</h1>
-          </div>
-          <div>
-            <button className="btn btn-danger" onClick={handleLogout}>
-              Sair
-            </button>
-          </div>
-        </header>
-
-        <main className="grid">
-          <section className="card">
-            <h2>Algo deu errado</h2>
-            <p style={{ color: '#d33' }}>{error}</p>
-            <button onClick={() => window.location.reload()}>Tentar novamente</button>
-          </section>
-        </main>
-      </div>
-    );
-  }
 
   return (
     <div className="page">
       <header className="header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <img src={logo} alt="InvestIA" style={{ height: 40 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src={logo} alt="InvestIA" style={{ height: '40px' }} />
           <h1>InvestIA</h1>
         </div>
-
-        <div className="header-right" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div className="user-pill">
           {user && (
-            <div className="user-pill" title={user.email}>
-              <div className="avatar">{user.name?.[0]?.toUpperCase() ?? 'U'}</div>
-              <span>Olá, {user.name}</span>
-            </div>
+            <>
+              <div className="avatar">{user.name.charAt(0).toUpperCase()}</div>
+              <span>
+                {user.name} ({user.email})
+              </span>
+            </>
           )}
-          <button className="btn btn-danger" onClick={handleLogout}>Sair</button>
+          <button className="btn btn-danger" onClick={handleLogout}>
+            Sair
+          </button>
         </div>
       </header>
 
-      {/* KPIs simples */}
-      <section className="kpis">
-        <div className="kpi-card">
-          <div className="kpi-label">Valor da Carteira</div>
-          <div className="kpi-value">
-            {totalValue.toLocaleString('pt-BR', {
-              style: 'currency',
-              currency: 'BRL',
-              maximumFractionDigits: 2,
-            })}
-          </div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Ativos</div>
-          <div className="kpi-value">{assets?.length ?? 0}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Perfil</div>
-          <div className="kpi-value">—</div>
-          <div className="kpi-hint">Teste virá no onboarding</div>
-        </div>
-      </section>
-
       <main className="grid">
+        {/* KPIs + Perfil de Risco */}
+        {portfolio && (
+          <section className="card">
+            <div className="card-header">
+              <h2>Resumo</h2>
+              <button className="btn btn-ghost" onClick={refreshPortfolio}>
+                Atualizar
+              </button>
+            </div>
+            <div
+              className="kpis"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: 12,
+                marginBottom: 12,
+              }}
+            >
+              <Kpi title="Investido" value={`R$ ${portfolio.invested_total.toFixed(2)}`} />
+              <Kpi title="Mercado" value={`R$ ${portfolio.market_total.toFixed(2)}`} />
+              <Kpi title="P/L" value={`R$ ${portfolio.pnl_abs.toFixed(2)}`} />
+              <Kpi title="P/L %" value={`${portfolio.pnl_pct.toFixed(2)}%`} />
+            </div>
+
+            {/* Perfil de risco */}
+            <RiskPanel />
+          </section>
+        )}
+
+        {/* Alocação da Carteira */}
         <section className="card">
           <div className="card-header">
             <h2>Alocação da Carteira</h2>
-            <button className="btn btn-ghost" onClick={refreshAssets}>
+            <button className="btn btn-ghost" onClick={refreshPortfolio}>
               Atualizar
             </button>
           </div>
-          <AllocationChart assets={assets} />
+          {portfolio && <AllocationChart assets={portfolio.itens} />}
+          {!portfolio && <p className="muted">Carregando carteira...</p>}
         </section>
 
+        {/* Resumo + CRUD de Ativos */}
         <section className="card">
           <div className="card-header">
-            <h2>Ativos</h2>
-            <button className="btn btn-ghost" onClick={refreshAssets}>
+            <h2>Resumo da Carteira</h2>
+            <button className="btn btn-ghost" onClick={refreshPortfolio}>
               Atualizar
             </button>
           </div>
-          <AssetsList assets={assets} onRefresh={refreshAssets} />
+          {portfolio ? (
+            <HoldingsList holdings={portfolio.itens} onRefresh={refreshPortfolio} />
+          ) : (
+            <p className="muted">Nenhum ativo encontrado.</p>
+          )}
         </section>
 
+        {/* Rebalanceamento */}
+        <section className="card">
+          <div className="card-header">
+            <h2>Rebalanceamento</h2>
+            <button className="btn btn-ghost" onClick={refreshPortfolio}>
+              Atualizar carteira
+            </button>
+          </div>
+          <RebalancePanel />
+        </section>
+
+        {/* Notícias */}
         <section className="card">
           <div className="card-header">
             <h2>Notícias recentes</h2>
@@ -198,6 +145,7 @@ export default function Dashboard() {
           <NewsList />
         </section>
 
+        {/* Chat */}
         <section className="card full">
           <div className="card-header">
             <h2>Chat (Assistente)</h2>
@@ -205,6 +153,24 @@ export default function Dashboard() {
           <ChatBox />
         </section>
       </main>
+    </div>
+  );
+}
+
+function Kpi({ title, value }: { title: string; value: string }) {
+  return (
+    <div
+      style={{
+        border: '1px solid #eee',
+        borderRadius: 8,
+        padding: 12,
+        background: '#fff',
+      }}
+    >
+      <div className="muted" style={{ fontSize: 12 }}>
+        {title}
+      </div>
+      <div style={{ fontSize: 18, fontWeight: 700 }}>{value}</div>
     </div>
   );
 }

@@ -1,40 +1,62 @@
-from datetime import datetime
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, conint
 from sqlalchemy.orm import Session
-from app.db.base import get_db
+from datetime import datetime
 
+from app.db.base import get_db
 from app.db.models import RiskProfile
+from app.routes.auth import get_current_user, User  # type: ignore
 
 router = APIRouter(prefix="/risk", tags=["risk"])
 
-DEFAULT_USER_ID = 1
+
+class RiskAnswers(BaseModel):
+    # cinco perguntas, nota 1..5
+    q1: conint(ge=1, le=5)
+    q2: conint(ge=1, le=5)
+    q3: conint(ge=1, le=5)
+    q4: conint(ge=1, le=5)
+    q5: conint(ge=1, le=5)
 
 
-@router.get("/profile")
-def get_profile(db: Session = Depends(get_db)):
-    rp = db.query(RiskProfile).filter(RiskProfile.user_id == DEFAULT_USER_ID).first()
-    return rp or {"profile": None, "score": None}
+def map_score_to_profile(score: int) -> str:
+    if score <= 10:  # 5x2
+        return "conservador"
+    if score <= 17:
+        return "moderado"
+    return "arrojado"
 
 
-@router.post("/assess")
-def assess(scores: list[int], db: Session = Depends(get_db)):
-    # scores: lista de 5–7 respostas (1..5)
-    total = sum(int(s) for s in scores)
-    if total <= 20:
-        profile = "conservador"
-    elif total <= 30:
-        profile = "moderado"
-    else:
-        profile = "arrojado"
+@router.get("")
+def get_profile(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    rp = db.query(RiskProfile).filter(RiskProfile.user_id == user.id).first()
+    if not rp:
+        return {"profile": None, "score": None}
+    return {"profile": rp.profile, "score": rp.score, "last_updated": rp.last_updated}
 
-    rp = db.query(RiskProfile).filter(RiskProfile.user_id == DEFAULT_USER_ID).first()
-    if rp:
-        rp.profile = profile
-        rp.score = total
-        rp.last_updated = datetime.utcnow()
-    else:
-        rp = RiskProfile(user_id=DEFAULT_USER_ID, profile=profile, score=total)
+
+@router.post("")
+def set_profile(
+    answers: RiskAnswers,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    score = answers.q1 + answers.q2 + answers.q3 + answers.q4 + answers.q5
+    profile = map_score_to_profile(score)
+
+    rp = db.query(RiskProfile).filter(RiskProfile.user_id == user.id).first()
+    if not rp:
+        rp = RiskProfile(
+            user_id=user.id,
+            profile=profile,
+            score=score,
+            last_updated=datetime.utcnow(),
+        )
         db.add(rp)
+    else:
+        rp.profile = profile
+        rp.score = score
+        rp.last_updated = datetime.utcnow()
+
     db.commit()
-    db.refresh(rp)
-    return rp
+    return {"profile": profile, "score": score}
