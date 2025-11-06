@@ -1,14 +1,30 @@
+
 import axios from 'axios';
 
-// Se VITE_API_URL não vier, usa "/api" (que o Nginx proxyia).
-const API_BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
+function resolveBaseUrl(): string {
+  const explicit = import.meta.env.VITE_API_URL;
+  if (explicit && typeof explicit === 'string') {
+    return explicit.replace(/\/+$/, '');
+  }
 
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:8000/api';
+    }
+  }
+
+  return '/api';
+}
+
+const API_BASE = resolveBaseUrl();
 const api = axios.create({ baseURL: API_BASE });
 
-// Header Authorization em toda request (inclusive após F5)
 api.interceptors.request.use((cfg) => {
-  const t = localStorage.getItem('token');
-  if (t) cfg.headers.Authorization = `Bearer ${t}`;
+  const token = localStorage.getItem('token');
+  if (token) {
+    cfg.headers.Authorization = `Bearer ${token}`;
+  }
   return cfg;
 });
 

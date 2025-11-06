@@ -4,8 +4,11 @@ WORKDIR /app
 
 # Dependências do sistema (psycopg2, etc.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libpq-dev curl && \
-    rm -rf /var/lib/apt/lists/*
+    ca-certificates \
+    build-essential \
+    libpq-dev \ 
+    curl \ 
+    && rm -rf /var/lib/apt/lists/*
 
 # Requisitos
 COPY requirements.txt .

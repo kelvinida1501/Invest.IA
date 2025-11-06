@@ -20,10 +20,7 @@ export default function Login() {
 
   const isEmailValid = useMemo(() => /\S+@\S+\.\S+/.test(email), [email]);
   const isPasswordOk = useMemo(() => password.trim().length >= 6, [password]);
-  const isConfirmOk = useMemo(
-    () => mode === 'login' || password === confirm,
-    [mode, password, confirm]
-  );
+  const isConfirmOk = useMemo(() => mode === 'login' || password === confirm, [mode, password, confirm]);
   const formValid =
     mode === 'login'
       ? isEmailValid && isPasswordOk
@@ -46,7 +43,7 @@ export default function Login() {
         await AuthApi.register(name, email, password);
         await AuthApi.login(email, password); // auto login
       }
-      navigate('/dashboard', { replace: true });
+      navigate('/inicio', { replace: true });
     } catch (err: any) {
       const detail =
         err?.response?.data?.detail ||

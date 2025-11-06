@@ -1,4 +1,4 @@
-fastapi
+﻿fastapi
 uvicorn[standard]
 pydantic
 python-multipart
@@ -15,3 +15,9 @@ PyJWT==2.8.0
 python-jose[cryptography]==3.3.0
 pytest
 httpx>=0.27
+yfinance==0.2.66
+langchain==0.2.11
+langchain-openai==0.1.8
+openai==1.40.0
+tiktoken>=0.7.0
+

@@ -1,12 +1,12 @@
-services:
+﻿services:
   db:
     image: postgres:15-alpine
     container_name: investia-db
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: investia
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-investia}
     ports:
       - "5432:5432"
     healthcheck:
@@ -21,25 +21,27 @@ services:
     build: ./Backend
     container_name: investia-backend
     environment:
-      # Passe um SECRET_KEY fixo em dev/prod
-      SECRET_KEY: "troque-por-uma-chave-bem-grande-e-aleatoria"
-      DATABASE_URL: "postgresql+psycopg2://postgres:postgres@db:5432/investia"
+      SECRET_KEY: ${SECRET_KEY}
+      DATABASE_URL: ${DATABASE_URL}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      CHAT_AGENT_ENABLED: ${CHAT_AGENT_ENABLED:-true}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
     depends_on:
       db:
         condition: service_healthy
     ports:
       - "8000:8000"
     volumes:
-      # opcional (dev): edite o código local e recarregue o contêiner
       - ./Backend:/app
 
   frontend:
     build:
       context: ./Frontend
-      # Embute a URL no build do Vite.
-      # Como teremos proxy /api no Nginx, use /api aqui:
       args:
-        - VITE_API_URL=/api
+        - VITE_API_URL=${VITE_API_URL:-/api}
     container_name: investia-frontend
     depends_on:
       - backend
@@ -48,3 +50,8 @@ services:
 
 volumes:
   pgdata:
+
+
+
+
+

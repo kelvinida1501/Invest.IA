@@ -20,25 +20,32 @@ export default function ChatBox() {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-    // scroll bottom
     const el = boxRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [history]);
 
   const send = async () => {
     const userMsg = msg.trim();
     if (!userMsg || loading) return;
 
-    setHistory((h) => [...h, { from: 'user', text: userMsg }]);
+    setHistory((prev) => [...prev, { from: 'user', text: userMsg }]);
     setMsg('');
     setLoading(true);
 
     try {
       const res = await api.post('/chat', { message: userMsg });
-      setHistory((h) => [...h, { from: 'bot', text: res.data?.reply ?? 'Sem resposta.' }]);
+      setHistory((prev) => [
+        ...prev,
+        { from: 'bot', text: res.data?.reply ?? 'Sem resposta.' },
+      ]);
     } catch (err) {
       console.error(err);
-      setHistory((h) => [...h, { from: 'bot', text: 'Erro ao consultar o assistente.' }]);
+      setHistory((prev) => [
+        ...prev,
+        { from: 'bot', text: 'Erro ao consultar o assistente.' },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -49,39 +56,60 @@ export default function ChatBox() {
     localStorage.removeItem(STORAGE_KEY);
   };
 
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void send();
+  };
+
   return (
-    <div>
-      <div
-        ref={boxRef}
-        style={{ height: 240, overflow: 'auto', border: '1px solid #eee', borderRadius: 8, padding: 8, background: '#fff' }}
-      >
-        {history.map((h, i) => (
-          <div key={i} style={{ textAlign: h.from === 'user' ? 'right' : 'left', marginBottom: 6 }}>
-            <b>{h.from === 'user' ? 'Você' : 'Assistente'}</b>: {h.text}
+    <form className="chatbox" onSubmit={handleSubmit}>
+      <div ref={boxRef} className="chat-history">
+        {history.length === 0 && !loading ? (
+          <p className="chat-placeholder muted small">
+            Nenhuma conversa ainda. Envie uma mensagem para começar.
+          </p>
+        ) : null}
+
+        {history.map((message, index) => (
+          <div key={index} className={`chat-message ${message.from}`}>
+            <span className="chat-author muted small">
+              {message.from === 'user' ? 'Você' : 'Assistente'}
+            </span>
+            <div className="chat-bubble">{message.text}</div>
           </div>
         ))}
+
         {loading && (
-          <div style={{ textAlign: 'left', color: '#666', fontStyle: 'italic' }}>
-            Assistente está digitando…
+          <div className="chat-message bot">
+            <span className="chat-author muted small">Assistente</span>
+            <div className="chat-bubble typing">Digitando…</div>
           </div>
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+      <div className="chat-composer">
         <input
-          style={{ flex: 1 }}
+          className="input chat-input"
           value={msg}
-          onChange={(e) => setMsg(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
+          onChange={(event) => setMsg(event.target.value)}
           placeholder="Pergunte sobre sua carteira, notícias, etc."
+          aria-label="Mensagem para o assistente"
+          disabled={loading}
         />
-        <button onClick={send} disabled={loading || !msg.trim()}>
-          {loading ? '...' : 'Enviar'}
-        </button>
-        <button className="ghost" onClick={clearChat} disabled={loading}>
-          Limpar
-        </button>
+        <div className="chat-actions">
+          <button type="submit" className="btn btn-primary" disabled={loading || !msg.trim()}>
+            {loading ? 'Enviando…' : 'Enviar'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={clearChat}
+            disabled={loading || history.length === 0}
+          >
+            Limpar
+          </button>
+        </div>
       </div>
-    </div>
+    </form>
   );
 }

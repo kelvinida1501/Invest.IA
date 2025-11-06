@@ -1,62 +1,177 @@
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, conint
-from sqlalchemy.orm import Session
+import json
 from datetime import datetime
+from typing import Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, conint, validator
+from sqlalchemy.orm import Session
 
 from app.db.base import get_db
 from app.db.models import RiskProfile
 from app.routes.auth import get_current_user, User  # type: ignore
+from app.services.allocations import get_allocation_profile
+from app.services.risk_profile import (
+    QUESTIONNAIRE_VERSION,
+    SCORE_VERSION,
+    InvalidRiskAnswer,
+    compute_risk_profile,
+    get_question_ids,
+    serialize_questionnaire,
+)
 
 router = APIRouter(prefix="/risk", tags=["risk"])
 
 
-class RiskAnswers(BaseModel):
-    # cinco perguntas, nota 1..5
-    q1: conint(ge=1, le=5)
-    q2: conint(ge=1, le=5)
-    q3: conint(ge=1, le=5)
-    q4: conint(ge=1, le=5)
-    q5: conint(ge=1, le=5)
+class RiskAssessmentRequest(BaseModel):
+    answers: Dict[str, conint(ge=1, le=5)]
+    restrictions: Optional[List[str]] = []
+
+    @validator("answers")
+    def validate_answers(cls, value: Dict[str, int]) -> Dict[str, int]:
+        expected = set(get_question_ids())
+        provided = set(value.keys())
+        missing = expected - provided
+        extra = provided - expected
+        if missing or extra:
+            raise ValueError(
+                f"Respostas inválidas. Faltando: {sorted(missing)}. Desconhecidas: {sorted(extra)}"
+            )
+        coerced = {k: int(v) for k, v in value.items()}
+        for key, v in coerced.items():
+            if v < 1 or v > 5:
+                raise ValueError(f"Resposta fora da escala (1-5) para '{key}'.")
+        return coerced
+
+    @validator("restrictions", pre=True, always=True)
+    def default_restrictions(cls, value):
+        if not value:
+            return []
+        dedup = []
+        seen = set()
+        for item in value:
+            key = str(item).strip()
+            if not key:
+                continue
+            if key not in seen:
+                seen.add(key)
+                dedup.append(key)
+        return dedup
 
 
-def map_score_to_profile(score: int) -> str:
-    if score <= 10:  # 5x2
-        return "conservador"
-    if score <= 17:
-        return "moderado"
-    return "arrojado"
+@router.get("/questions")
+def get_questions():
+    return serialize_questionnaire()
 
 
 @router.get("")
-def get_profile(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def get_profile(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     rp = db.query(RiskProfile).filter(RiskProfile.user_id == user.id).first()
-    if not rp:
-        return {"profile": None, "score": None}
-    return {"profile": rp.profile, "score": rp.score, "last_updated": rp.last_updated}
+    allocation_profile = get_allocation_profile(rp.profile if rp else "moderado")
+    payload = {"answers": None, "restrictions": []}
+    rules_applied: List[str] = []
+    base_profile: Optional[str] = None
+
+    if rp and rp.answers:
+        try:
+            payload = json.loads(rp.answers)
+        except json.JSONDecodeError:
+            payload = {"answers": None, "restrictions": []}
+
+        answers = payload.get("answers") or {}
+        try:
+            computation = compute_risk_profile(answers)
+            base_profile = computation.base_profile
+        except InvalidRiskAnswer:
+            base_profile = None
+
+    if rp and rp.rules:
+        try:
+            rules_applied = list(json.loads(rp.rules))
+        except json.JSONDecodeError:
+            rules_applied = []
+
+    return {
+        "profile": rp.profile if rp else None,
+        "score": rp.score if rp else None,
+        "base_profile": base_profile,
+        "questionnaire_version": (rp.questionnaire_version if rp else None)
+        or QUESTIONNAIRE_VERSION,
+        "score_version": (rp.score_version if rp else None) or SCORE_VERSION,
+        "answers": payload.get("answers"),
+        "restrictions": payload.get("restrictions"),
+        "rules_applied": rules_applied,
+        "last_updated": rp.last_updated if rp else None,
+        "allocation": {
+            "profile": allocation_profile.profile,
+            "weights": allocation_profile.weights,
+            "bands": allocation_profile.bands,
+            "description": allocation_profile.description,
+        },
+    }
 
 
 @router.post("")
 def set_profile(
-    answers: RiskAnswers,
+    body: RiskAssessmentRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    score = answers.q1 + answers.q2 + answers.q3 + answers.q4 + answers.q5
-    profile = map_score_to_profile(score)
+    try:
+        computation = compute_risk_profile(body.answers)
+    except InvalidRiskAnswer as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    payload = {
+        "answers": body.answers,
+        "restrictions": body.restrictions or [],
+    }
 
     rp = db.query(RiskProfile).filter(RiskProfile.user_id == user.id).first()
+    now = datetime.utcnow()
+
     if not rp:
         rp = RiskProfile(
             user_id=user.id,
-            profile=profile,
-            score=score,
-            last_updated=datetime.utcnow(),
+            profile=computation.profile,
+            score=computation.score,
+            last_updated=now,
+            questionnaire_version=QUESTIONNAIRE_VERSION,
+            score_version=SCORE_VERSION,
+            answers=json.dumps(payload),
+            rules=json.dumps(computation.rules_applied),
         )
         db.add(rp)
     else:
-        rp.profile = profile
-        rp.score = score
-        rp.last_updated = datetime.utcnow()
+        rp.profile = computation.profile
+        rp.score = computation.score
+        rp.last_updated = now
+        rp.questionnaire_version = QUESTIONNAIRE_VERSION
+        rp.score_version = SCORE_VERSION
+        rp.answers = json.dumps(payload)
+        rp.rules = json.dumps(computation.rules_applied)
 
     db.commit()
-    return {"profile": profile, "score": score}
+    db.refresh(rp)
+
+    allocation_profile = get_allocation_profile(computation.profile)
+
+    return {
+        "profile": computation.profile,
+        "score": computation.score,
+        "base_profile": computation.base_profile,
+        "questionnaire_version": QUESTIONNAIRE_VERSION,
+        "score_version": SCORE_VERSION,
+        "rules_applied": computation.rules_applied,
+        "answers": body.answers,
+        "restrictions": body.restrictions,
+        "last_updated": rp.last_updated,
+        "allocation": {
+            "profile": allocation_profile.profile,
+            "weights": allocation_profile.weights,
+            "bands": allocation_profile.bands,
+            "description": allocation_profile.description,
+        },
+    }

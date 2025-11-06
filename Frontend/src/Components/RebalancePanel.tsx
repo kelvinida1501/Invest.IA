@@ -1,151 +1,476 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../Api/ApiClient';
 
-type RebalanceResp = {
-  profile: 'conservador' | 'moderado' | 'arrojado' | string;
-  total: number;
-  targets: Record<string, number>; // ex: { acao: 0.45, etf: 0.10, fundo: 0.35, cripto: 0.10 }
-  buckets: {
-    values: Record<string, number>;
-    pct: Record<string, number>;
-  };
-  suggestions: Array<{
-    symbol: string;
-    class: string;
-    action: 'comprar' | 'vender' | string;
-    delta_value: number;
-    delta_qty: number;
-    price_ref: number;
-  }>;
+type RiskLevel = 'conservador' | 'moderado' | 'arrojado' | string;
+
+type ClassSummary = {
+  label: string;
+  current_value: number;
+  current_pct: number;
+  target_pct: number;
+  floor_pct: number;
+  ceiling_pct: number;
+  delta_value: number;
+  post_value: number;
+  post_pct: number;
+  delta_pct: number;
 };
+
+type Suggestion = {
+  symbol: string;
+  class: string;
+  action: string;
+  quantity: number;
+  value: number;
+  price_ref: number;
+  weight_before: number;
+  weight_after: number;
+  class_weight_before: number;
+  class_weight_after: number;
+  rationale: string;
+};
+
+type RebalanceResponse = {
+  profile: RiskLevel;
+  profile_source: 'default' | 'stored' | 'override' | string;
+  score: number | null;
+  total_value: number;
+  total_value_after: number;
+  targets: Record<string, number>;
+  bands: Record<string, number>;
+  classes: Record<string, ClassSummary>;
+  suggestions: Suggestion[];
+  within_bands: boolean;
+  turnover: number;
+  net_cash_flow: number;
+  rules_applied: string[];
+  notes: string[];
+  as_of?: string;
+  options: {
+    allow_sells: boolean;
+    prefer_etfs: boolean;
+    min_trade_value: number;
+    max_turnover: number;
+  };
+};
+
+const PROFILE_LABEL: Record<string, string> = {
+  conservador: 'Conservador',
+  moderado: 'Moderado',
+  arrojado: 'Arrojado',
+};
+
+const CLASS_LABELS: Record<string, string> = {
+  acao: 'Ações',
+  etf: 'ETFs',
+  fii: 'FIIs',
+  cripto: 'Cripto',
+};
+
+function formatPercent(value: number | undefined, digits = 2) {
+  if (value === undefined || Number.isNaN(value)) {
+    return '--';
+  }
+  return `${(value * 100).toFixed(digits)}%`;
+}
+
+function formatCurrency(value: number | undefined) {
+  if (value === undefined || Number.isNaN(value)) {
+    return '--';
+  }
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
 
 export default function RebalancePanel() {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<RebalanceResp | null>(null);
+  const [data, setData] = useState<RebalanceResponse | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [override, setOverride] = useState<string>(''); // "", "conservador", "moderado", "arrojado"
+
+  const [profileOverride, setProfileOverride] = useState<RiskLevel | ''>('');
+  const [allowSells, setAllowSells] = useState(true);
+  const [preferEtfs, setPreferEtfs] = useState(false);
+  const [minTradeValue, setMinTradeValue] = useState(100);
+  const [maxTurnoverPercent, setMaxTurnoverPercent] = useState(25);
 
   const load = async () => {
-  setLoading(true);
-  setError(null);
-  try {
-    const qs = override ? `?profile_override=${override}` : '';
-    const { data } = await api.get(`/portfolio/rebalance${qs}`);
-    setData(data);
-  } catch (err: any) {
-    const detail =
-      err?.response?.data?.detail ||
-      err?.response?.data?.message ||
-      `Falha ao calcular rebalanceamento (status ${err?.response?.status ?? '?'}).`;
-    setError(detail);
-    setData(null);
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      if (profileOverride) {
+        params.set('profile_override', String(profileOverride));
+      }
+      params.set('allow_sells', String(allowSells));
+      params.set('prefer_etfs', String(preferEtfs));
+      params.set('min_trade_value', String(minTradeValue));
+      params.set('max_turnover', String(maxTurnoverPercent / 100));
+
+      const query = params.toString();
+      const url = query ? `/portfolio/rebalance?${query}` : '/portfolio/rebalance';
+      const { data } = await api.get(url);
+      setData(data);
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.detail ||
+        err?.message ||
+        'Falha ao calcular sugestões de rebalanceamento.';
+      setError(message);
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const targetsPct = useMemo(() => {
-    const t: Record<string, number> = {};
-    if (data?.targets) {
-      for (const k of Object.keys(data.targets)) t[k] = Math.round(data.targets[k] * 100);
+  const classEntries = useMemo(() => {
+    if (!data) return [];
+    return Object.entries(data.classes ?? {}).map(([key, summary]) => ({
+      key,
+      ...summary,
+    }));
+  }, [data]);
+
+  const profileLabel = data?.profile ? PROFILE_LABEL[data.profile] ?? data.profile : null;
+
+  const netCashFlowLabel = useMemo(() => {
+    if (!data) return null;
+    if (Math.abs(data.net_cash_flow) < 1e-2) {
+      return 'Fluxo de caixa neutro';
     }
-    return t;
+    if (data.net_cash_flow > 0) {
+      return `Aporte sugerido: ${formatCurrency(data.net_cash_flow)}`;
+    }
+    return `Caixa liberado: ${formatCurrency(Math.abs(data.net_cash_flow))}`;
   }, [data]);
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div className="muted" style={{ fontSize: 12 }}>
-          Perfil atual:
-        </div>
-        <b>{data?.profile ?? '—'}</b>
-        <div style={{ flex: 1 }} />
-        <select value={override} onChange={(e) => setOverride(e.target.value)} className="input" style={{ maxWidth: 220 }}>
-          <option value="">Sem override (usar perfil salvo)</option>
-          <option value="conservador">conservador</option>
-          <option value="moderado">moderado</option>
-          <option value="arrojado">arrojado</option>
-        </select>
-        <button className="btn btn-ghost" onClick={load}>Calcular</button>
-      </div>
-
-      {loading && <p className="muted" style={{ marginTop: 8 }}>Calculando…</p>}
-
-      {data && !loading && (
-        <>
-          {/* Buckets atuais vs alvo */}
-          <div style={{ marginTop: 12, overflowX: 'auto' }}>
-            <table className="table">
-              <thead>
-                  {error && (
-                    <div style={{ marginTop: 8, color: '#c62828' }}>
-                      {error}
-                    </div>
-                  )}
-                <tr>
-                  <th>Bucket</th>
-                  <th>Atual (%)</th>
-                  <th>Alvo (%)</th>
-                  <th>Valor atual (R$)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(targetsPct).map((b) => (
-                  <tr key={b}>
-                    <td><b>{b}</b></td>
-                    <td>{(data.buckets?.pct?.[b] ?? 0).toFixed(2)}%</td>
-                    <td>{targetsPct[b]}%</td>
-                    <td>R$ {(data.buckets?.values?.[b] ?? 0).toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <div className="rebalance-panel">
+      <section
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 12,
+          alignItems: 'center',
+        }}
+      >
+        <div>
+          <div className="muted" style={{ fontSize: 12 }}>
+            Perfil considerado
           </div>
-
-          {/* Sugestões por ativo */}
-          <div style={{ marginTop: 12 }}>
-            <div className="muted" style={{ marginBottom: 6 }}>
-              Sugestões (ordenadas por maior ajuste de valor)
+          <div style={{ fontWeight: 700 }}>
+            {profileLabel ?? 'Não calculado'}
+            {data?.profile_source === 'override' && <span style={{ marginLeft: 8 }}>(override)</span>}
+          </div>
+          {typeof data?.score === 'number' && (
+            <div className="muted" style={{ fontSize: 12 }}>
+              Score atual: {data.score} pts
             </div>
-            {data.suggestions.length === 0 ? (
-              <p className="muted">Sem ajustes sugeridos.</p>
-            ) : (
-              <div className="table-wrap">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Ativo</th>
-                      <th>Bucket</th>
-                      <th>Ação</th>
-                      <th>Qtd</th>
-                      <th>Valor (R$)</th>
-                      <th>Preço ref. (R$)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.suggestions.map((s, i) => (
-                      <tr key={i}>
-                        <td><b>{s.symbol}</b></td>
-                        <td>{s.class}</td>
-                        <td style={{ color: s.action === 'comprar' ? '#2e7d32' : '#c62828', fontWeight: 700 }}>
-                          {s.action}
-                        </td>
-                        <td>{s.delta_qty.toFixed(4)}</td>
-                        <td>R$ {s.delta_value.toFixed(2)}</td>
-                        <td>R$ {s.price_ref.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          )}
+        </div>
+
+      </section>
+
+      <section
+        style={{
+          marginTop: 16,
+          padding: 16,
+          borderRadius: 12,
+          border: '1px solid rgba(255,255,255,0.05)',
+          background: '#101b22',
+          display: 'grid',
+          gap: 12,
+        }}
+      >
+        <h3 style={{ margin: 0 }}>Parâmetros</h3>
+        <div
+          style={{
+            display: 'grid',
+            gap: 12,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          }}
+        >
+          <div>
+            <label className="input-label">Forçar perfil</label>
+            <select
+              className="input"
+              value={profileOverride}
+              onChange={(event) => setProfileOverride(event.target.value as RiskLevel | '')}
+            >
+              <option value="">Usar perfil salvo</option>
+              <option value="conservador">Conservador</option>
+              <option value="moderado">Moderado</option>
+              <option value="arrojado">Arrojado</option>
+            </select>
           </div>
+
+          <div>
+            <label className="input-label">Valor mínimo por ordem (R$)</label>
+            <input
+              className="input"
+              type="number"
+              min={0}
+              value={minTradeValue}
+              onChange={(event) => setMinTradeValue(Number(event.target.value) || 0)}
+            />
+          </div>
+
+          <div>
+            <label className="input-label">Turnover máximo (%)</label>
+            <input
+              className="input"
+              type="number"
+              min={0}
+              max={100}
+              value={maxTurnoverPercent}
+              onChange={(event) => setMaxTurnoverPercent(Number(event.target.value) || 0)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              id="allow-sells"
+              type="checkbox"
+              checked={allowSells}
+              onChange={(event) => setAllowSells(event.target.checked)}
+            />
+            <label htmlFor="allow-sells" className="input-label">
+              Permitir vendas
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              id="prefer-etfs"
+              type="checkbox"
+              checked={preferEtfs}
+              onChange={(event) => setPreferEtfs(event.target.checked)}
+            />
+            <label htmlFor="prefer-etfs" className="input-label">
+              Priorizar ETFs nas compras
+            </label>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-primary" onClick={load} disabled={loading}>
+            {loading ? 'Calculando...' : 'Calcular'}
+          </button>
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              setProfileOverride('');
+              setAllowSells(true);
+              setPreferEtfs(false);
+              setMinTradeValue(100);
+              setMaxTurnoverPercent(25);
+            }}
+            disabled={loading}
+          >
+            Redefinir
+          </button>
+        </div>
+      </section>
+
+      {error && (
+        <div className="error-block" style={{ marginTop: 16 }}>
+          {error}
+        </div>
+      )}
+
+      {data && !loading && !error && (
+        <>
+          <section style={{ marginTop: 16 }}>
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 16,
+                padding: 16,
+                borderRadius: 12,
+                background: '#101b22',
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              <Metric label="Valor total" value={formatCurrency(data.total_value)} />
+              <Metric label="Valor pós-ajuste" value={formatCurrency(data.total_value_after)} />
+              <Metric label="Turnover" value={formatPercent(data.turnover, 2)} />
+              {netCashFlowLabel && <Metric label="Fluxo líquido" value={netCashFlowLabel} />}
+              <Metric
+                label="Situação"
+                value={data.within_bands ? 'Carteira dentro das bandas alvo' : 'Ajustes recomendados'}
+              />
+            </div>
+          </section>
+
+          <section style={{ marginTop: 16 }}>
+            <h3>Desvios por classe</h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Classe</th>
+                    <th>Atual</th>
+                    <th>Alvo</th>
+                    <th>Banda</th>
+                    <th>Delta</th>
+                    <th>Valor atual</th>
+                    <th>Δ Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {classEntries.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="muted">
+                        Sem dados de alocação disponíveis.
+                      </td>
+                    </tr>
+                  ) : (
+                    classEntries.map((entry) => (
+                      <tr key={entry.key}>
+                        <td>{CLASS_LABELS[entry.key] ?? entry.label ?? entry.key.toUpperCase()}</td>
+                        <td>{formatPercent(entry.current_pct)}</td>
+                        <td>{formatPercent(entry.target_pct)}</td>
+                        <td>
+                          {formatPercent(entry.floor_pct, 2)} a {formatPercent(entry.ceiling_pct, 2)}
+                        </td>
+                        <td style={{ color: entry.delta_pct >= 0 ? '#2e7d32' : '#c62828' }}>
+                          {formatPercent(entry.delta_pct)}
+                        </td>
+                        <td>{formatCurrency(entry.current_value)}</td>
+                        <td>{formatCurrency(entry.delta_value)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section style={{ marginTop: 16 }}>
+            <div className="muted" style={{ marginBottom: 6 }}>
+              Sugestões de ordens
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Ativo</th>
+                    <th>Classe</th>
+                    <th>Ação</th>
+                    <th>Quantidade</th>
+                    <th>Valor</th>
+                    <th>Preço ref.</th>
+                    <th>Peso antes</th>
+                    <th>Peso depois</th>
+                    <th>Racional</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.suggestions.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="muted">
+                        Sem ajustes sugeridos. Carteira dentro das bandas definidas.
+                      </td>
+                    </tr>
+                  ) : (
+                    data.suggestions.map((suggestion, index) => (
+                      <tr key={`${suggestion.symbol}-${index}`}>
+                        <td>
+                          <b>{suggestion.symbol}</b>
+                        </td>
+                        <td>{CLASS_LABELS[suggestion.class] ?? suggestion.class.toUpperCase()}</td>
+                        <td
+                          style={{
+                            color: suggestion.action === 'comprar' ? '#2e7d32' : '#c62828',
+                            fontWeight: 700,
+                          }}
+                        >
+                          {suggestion.action}
+                        </td>
+                        <td>{suggestion.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}</td>
+                        <td>{formatCurrency(suggestion.value)}</td>
+                        <td>{formatCurrency(suggestion.price_ref)}</td>
+                        <td>{formatPercent(suggestion.weight_before, 3)}</td>
+                        <td>{formatPercent(suggestion.weight_after, 3)}</td>
+                        <td style={{ maxWidth: 280 }}>{suggestion.rationale}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {data.notes.length > 0 && (
+            <section style={{ marginTop: 16 }}>
+              <div className="muted" style={{ marginBottom: 6 }}>
+                Observações
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {data.notes.map((note, index) => (
+                  <li key={index} style={{ marginBottom: 4 }}>
+                    {note}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {data.rules_applied.length > 0 && (
+            <section style={{ marginTop: 16 }}>
+              <div className="muted" style={{ marginBottom: 6 }}>
+                Regras de perfil aplicadas
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {data.rules_applied.map((rule) => (
+                  <span
+                    key={rule}
+                    style={{
+                      background: '#263238',
+                      color: '#fff',
+                      borderRadius: 999,
+                      padding: '4px 12px',
+                      fontSize: 12,
+                    }}
+                  >
+                    {regraLabel(rule)}
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
         </>
       )}
     </div>
   );
+}
+
+function Metric({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div>
+      <div className="muted" style={{ fontSize: 12 }}>
+        {label}
+      </div>
+      <div style={{ fontWeight: 600 }}>{value ?? '--'}</div>
+    </div>
+  );
+}
+
+function regraLabel(rule: string) {
+  switch (rule) {
+    case 'cap_moderado_por_tolerancia':
+      return 'Limite por tolerância a perdas';
+    case 'cap_moderado_por_reacao':
+      return 'Limite por reação a quedas';
+    case 'cap_moderado_por_liquidez':
+      return 'Limite por necessidade de liquidez';
+    case 'cap_conservador_por_reserva_horizonte':
+      return 'Limite por reserva e horizonte curtos';
+    default:
+      return rule;
+  }
 }

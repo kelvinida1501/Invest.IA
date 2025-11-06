@@ -5,9 +5,9 @@ from sqlalchemy import (
     String,
     Float,
     DateTime,
+    Date,
     ForeignKey,
     Text,
-    Date,
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
@@ -43,6 +43,8 @@ class Asset(Base):
     name = Column(String)
     class_ = Column(String)  # acao|fundo|cripto|etf|...
     currency = Column(String, default="BRL")
+    last_quote_price = Column(Float, nullable=True)
+    last_quote_at = Column(DateTime, nullable=True)
 
     prices = relationship(
         "AssetPrice", back_populates="asset", cascade="all, delete-orphan"
@@ -60,13 +62,20 @@ class Portfolio(Base):
     holdings = relationship(
         "Holding", back_populates="portfolio", cascade="all, delete-orphan"
     )
+    transactions = relationship(
+        "Transaction", back_populates="portfolio", cascade="all, delete-orphan"
+    )
 
 
 class Holding(Base):
     __tablename__ = "holdings"
     __table_args__ = (
+        # Unicidade por ativo dentro do portfólio na mesma data de compra
         UniqueConstraint(
-            "portfolio_id", "asset_id", name="uq_holdings_portfolio_asset"
+            "portfolio_id",
+            "asset_id",
+            "purchase_date",
+            name="uq_holdings_portfolio_asset_date",
         ),
     )
     id = Column(Integer, primary_key=True)
@@ -74,11 +83,33 @@ class Holding(Base):
     asset_id = Column(Integer, ForeignKey("assets.id", ondelete="RESTRICT"))
     quantity = Column(Float, nullable=False)
     avg_price = Column(Float, nullable=False)
+    purchase_date = Column(Date, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
     portfolio = relationship("Portfolio", back_populates="holdings")
     asset = relationship("Asset")
+
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+    id = Column(Integer, primary_key=True)
+    portfolio_id = Column(Integer, ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False)
+    asset_id = Column(Integer, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
+    type = Column(String, nullable=False)  # buy|sell
+    quantity = Column(Float, nullable=False)
+    price = Column(Float, nullable=False)
+    total = Column(Float, nullable=False)
+    executed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    status = Column(String, nullable=False, default="active")
+    kind = Column(String, nullable=False, default="trade")  # trade|adjust|manual
+    source = Column(String, nullable=True)  # auto|manual|import
+    note = Column(Text, nullable=True)
+    reversal_of_id = Column(Integer, ForeignKey("transactions.id", ondelete="SET NULL"))
+
+    portfolio = relationship("Portfolio", back_populates="transactions")
+    asset = relationship("Asset")
+    reversal_of = relationship("Transaction", remote_side=[id], backref="reversals", foreign_keys=[reversal_of_id])
 
 
 class AssetPrice(Base):
@@ -113,6 +144,10 @@ class RiskProfile(Base):
     profile = Column(String, nullable=False)  # conservador|moderado|arrojado
     score = Column(Integer, nullable=False)
     last_updated = Column(DateTime, default=datetime.utcnow)
+    answers = Column(Text, nullable=True)
+    questionnaire_version = Column(String, nullable=True)
+    score_version = Column(String, nullable=True)
+    rules = Column(Text, nullable=True)
 
     user = relationship("User", back_populates="risk_profile")
 

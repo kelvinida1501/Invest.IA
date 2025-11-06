@@ -37,6 +37,12 @@ def upgrade():
         sa.Column("name", sa.String(), nullable=True),
         sa.Column("class_", sa.String(), nullable=True),  # acao|fundo|cripto|...
         sa.Column("currency", sa.String(), nullable=False, server_default="BRL"),
+        sa.Column("last_quote_price", sa.Float(), nullable=True),
+        sa.Column(
+            "last_quote_at",
+            sa.DateTime(timezone=False),
+            nullable=True,
+        ),
     )
 
     # PORTFOLIOS (permitindo mais de um por usuário; no MVP use 1 padrão)
@@ -73,7 +79,8 @@ def upgrade():
             nullable=False,
         ),
         sa.Column("quantity", sa.Float(), nullable=False),
-        sa.Column("avg_price", sa.Float(), nullable=False),
+        sa.Column("avg_price", sa.Float(), nullable=False),        
+        sa.Column("purchase_date", sa.Date(), nullable=True),
         sa.Column(
             "created_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")
         ),
@@ -192,7 +199,6 @@ def downgrade():
     op.drop_table("holdings")
     op.drop_index("ix_portfolios_user", table_name="portfolios")
     op.drop_table("portfolios")
-    op.drop_index("ix_assets_symbol", table_name="assets")
     op.drop_table("assets")
-    op.drop_index("ix_users_email", table_name="users")
     op.drop_table("users")
+
