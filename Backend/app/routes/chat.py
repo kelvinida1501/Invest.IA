@@ -21,7 +21,9 @@ _settings = get_settings()
 
 class ChatRequest(BaseModel):
     message: str
-    session_id: Optional[int] = Field(default=None, description="Identificador da sessao de chat existente.")
+    session_id: Optional[int] = Field(
+        default=None, description="Identificador da sessao de chat existente."
+    )
 
 
 class ObservationPayload(BaseModel):
@@ -56,7 +58,9 @@ class ChatHistoryResponse(BaseModel):
 
 
 def _serialize_observation(obs: ToolObservation) -> ObservationPayload:
-    return ObservationPayload(name=obs.name, description=obs.description, content=obs.content, data=obs.data)
+    return ObservationPayload(
+        name=obs.name, description=obs.description, content=obs.content, data=obs.data
+    )
 
 
 def _load_session(db: Session, user: User, session_id: Optional[int]) -> ChatSession:
@@ -67,9 +71,15 @@ def _load_session(db: Session, user: User, session_id: Optional[int]) -> ChatSes
         db.refresh(session)
         return session
 
-    session = db.query(ChatSession).filter(ChatSession.id == session_id, ChatSession.user_id == user.id).first()
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.id == session_id, ChatSession.user_id == user.id)
+        .first()
+    )
     if not session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sessao nao encontrada.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Sessao nao encontrada."
+        )
     return session
 
 
@@ -85,20 +95,33 @@ def _fetch_history(db: Session, session_id: int, limit: int) -> List[ChatMessage
     return rows[-limit:]
 
 
-def _persist_message(db: Session, session_id: int, role: str, content: str) -> ChatMessage:
-    msg = ChatMessage(session_id=session_id, role=role, content=content, created_at=datetime.utcnow())
+def _persist_message(
+    db: Session, session_id: int, role: str, content: str
+) -> ChatMessage:
+    msg = ChatMessage(
+        session_id=session_id, role=role, content=content, created_at=datetime.utcnow()
+    )
     db.add(msg)
     return msg
 
 
 @router.post("", response_model=ChatResponse)
-def chat(body: ChatRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def chat(
+    body: ChatRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     if not _settings.chat.enabled:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Chat desabilitado no momento.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Chat desabilitado no momento.",
+        )
 
     user_message = (body.message or "").strip()
     if not user_message:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Mensagem vazia.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Mensagem vazia."
+        )
 
     session = _load_session(db, current_user, body.session_id)
     history_rows = _fetch_history(db, session.id, _settings.chat.history_window)
@@ -106,7 +129,9 @@ def chat(body: ChatRequest, db: Session = Depends(get_db), current_user: User = 
     _persist_message(db, session.id, "user", user_message)
     db.commit()
 
-    agent_response = _agent.generate_reply(db=db, user=current_user, message=user_message, history=history_rows)
+    agent_response = _agent.generate_reply(
+        db=db, user=current_user, message=user_message, history=history_rows
+    )
 
     _persist_message(db, session.id, "assistant", agent_response.reply)
     db.commit()
@@ -122,8 +147,12 @@ def chat(body: ChatRequest, db: Session = Depends(get_db), current_user: User = 
     )
 
 
-@router.post("/session", response_model=NewSessionResponse, status_code=status.HTTP_201_CREATED)
-def create_session(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.post(
+    "/session", response_model=NewSessionResponse, status_code=status.HTTP_201_CREATED
+)
+def create_session(
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
     session = _load_session(db, current_user, None)
     return NewSessionResponse(session_id=session.id)
 
@@ -134,9 +163,15 @@ def get_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    session = db.query(ChatSession).filter(ChatSession.id == session_id, ChatSession.user_id == current_user.id).first()
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.id == session_id, ChatSession.user_id == current_user.id)
+        .first()
+    )
     if not session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sessao nao encontrada.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Sessao nao encontrada."
+        )
 
     rows = (
         db.query(ChatMessage)
@@ -146,6 +181,9 @@ def get_history(
     )
 
     payload = [
-        ChatMessagePayload(id=row.id, role=row.role, content=row.content, created_at=row.created_at) for row in rows
+        ChatMessagePayload(
+            id=row.id, role=row.role, content=row.content, created_at=row.created_at
+        )
+        for row in rows
     ]
     return ChatHistoryResponse(session_id=session.id, messages=payload)

@@ -122,7 +122,9 @@ def create_holding(
 
     purchase_dt = body.purchase_date or date.today()
     if purchase_dt > date.today():
-        raise HTTPException(status_code=422, detail="Data de compra nao pode ser futura")
+        raise HTTPException(
+            status_code=422, detail="Data de compra nao pode ser futura"
+        )
     purchase_dt_dt = datetime.combine(purchase_dt, datetime.min.time())
 
     # Verifica se já existe lote do mesmo ativo na mesma data
@@ -197,7 +199,9 @@ def update_holding(
     holding.updated_at = datetime.utcnow()
     if body.purchase_date:
         if body.purchase_date > date.today():
-            raise HTTPException(status_code=422, detail="Data de compra nao pode ser futura")
+            raise HTTPException(
+                status_code=422, detail="Data de compra nao pode ser futura"
+            )
         # Evita colisão de unicidade ao alterar a data
         conflict = (
             db.query(Holding)

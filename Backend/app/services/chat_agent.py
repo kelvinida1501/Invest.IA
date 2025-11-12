@@ -111,7 +111,11 @@ def _build_portfolio_observation(db: Session, user: User) -> ToolObservation:
         asset = holding.asset
         if not asset:
             continue
-        price = float(asset.last_quote_price) if asset.last_quote_price is not None else float(holding.avg_price)
+        price = (
+            float(asset.last_quote_price)
+            if asset.last_quote_price is not None
+            else float(holding.avg_price)
+        )
         invested = float(holding.quantity) * float(holding.avg_price)
         current_value = float(holding.quantity) * price
         pnl_abs = current_value - invested
@@ -124,7 +128,9 @@ def _build_portfolio_observation(db: Session, user: User) -> ToolObservation:
         if asset.symbol:
             symbols.append(asset.symbol)
 
-        if asset.last_quote_at and (latest_quote_at is None or asset.last_quote_at > latest_quote_at):
+        if asset.last_quote_at and (
+            latest_quote_at is None or asset.last_quote_at > latest_quote_at
+        ):
             latest_quote_at = asset.last_quote_at
 
         holdings_summary.append(
@@ -145,11 +151,19 @@ def _build_portfolio_observation(db: Session, user: User) -> ToolObservation:
     symbols = list(dict.fromkeys(symbols))
 
     pnl_abs_total = totals["current_value"] - totals["invested_value"]
-    pnl_pct_total = (pnl_abs_total / totals["invested_value"] * 100.0) if totals["invested_value"] > 0 else 0.0
+    pnl_pct_total = (
+        (pnl_abs_total / totals["invested_value"] * 100.0)
+        if totals["invested_value"] > 0
+        else 0.0
+    )
 
     class_breakdown: List[Dict[str, Any]] = []
     for class_key, amount in class_totals.items():
-        share = (amount / totals["current_value"] * 100.0) if totals["current_value"] > 0 else 0.0
+        share = (
+            (amount / totals["current_value"] * 100.0)
+            if totals["current_value"] > 0
+            else 0.0
+        )
         class_breakdown.append(
             {
                 "class": class_key,
@@ -184,12 +198,15 @@ def _build_portfolio_observation(db: Session, user: User) -> ToolObservation:
 
     if class_breakdown:
         share_text = ", ".join(
-            f"{item['label']}: {_format_percentage(item['share_pct'])}" for item in class_breakdown[:4]
+            f"{item['label']}: {_format_percentage(item['share_pct'])}"
+            for item in class_breakdown[:4]
         )
         lines.append(f"Distribuicao por classe: {share_text}.")
 
     if latest_quote_at:
-        lines.append(f"Ultima atualizacao de precos: {latest_quote_at.isoformat()} (UTC).")
+        lines.append(
+            f"Ultima atualizacao de precos: {latest_quote_at.isoformat()} (UTC)."
+        )
 
     return ToolObservation(
         name="portfolio_overview",
@@ -243,7 +260,9 @@ def _build_risk_profile_observation(db: Session, user: User) -> ToolObservation:
         data={
             "profile": profile.profile,
             "score": profile.score,
-            "last_updated": profile.last_updated.isoformat() if profile.last_updated else None,
+            "last_updated": (
+                profile.last_updated.isoformat() if profile.last_updated else None
+            ),
             "rules": profile.rules,
             "questionnaire_version": profile.questionnaire_version,
             "score_version": profile.score_version,
@@ -269,7 +288,9 @@ def _build_news_observation(symbols: Iterable[str]) -> ToolObservation:
             per_symbol_limit=1,
             order_by="recent",
         )
-    except Exception as exc:  # pragma: no cover - defensive fallback para ambientes offline
+    except (
+        Exception
+    ) as exc:  # pragma: no cover - defensive fallback para ambientes offline
         return ToolObservation(
             name="market_news",
             description="Noticias recentes relacionadas aos ativos do usuario.",
@@ -294,13 +315,19 @@ def _build_news_observation(symbols: Iterable[str]) -> ToolObservation:
         sentiment_label = sent.get("label") or "desconhecido"
         published = item.get("published_at") or "data nao disponivel"
         tickers = ", ".join(item.get("matched_symbols", []))
-        lines.append(f"- {headline} ({source}, {published}) | Sentimento: {sentiment_label} | Tickers: {tickers}")
+        lines.append(
+            f"- {headline} ({source}, {published}) | Sentimento: {sentiment_label} | Tickers: {tickers}"
+        )
 
     return ToolObservation(
         name="market_news",
         description="Noticias recentes relacionadas aos ativos do usuario.",
         content="\n".join(lines),
-        data={"items": items, "meta": payload.get("meta"), "symbols": payload.get("symbols")},
+        data={
+            "items": items,
+            "meta": payload.get("meta"),
+            "symbols": payload.get("symbols"),
+        },
     )
 
 
@@ -386,9 +413,16 @@ class ChatAgent:
             )
 
         portfolio_obs = _build_portfolio_observation(db, user)
-        observations: List[ToolObservation] = [portfolio_obs, _build_risk_profile_observation(db, user)]
+        observations: List[ToolObservation] = [
+            portfolio_obs,
+            _build_risk_profile_observation(db, user),
+        ]
         portfolio_data = portfolio_obs.data.get("portfolio")
-        symbols = portfolio_data.get("symbols", []) if isinstance(portfolio_data, dict) else []
+        symbols = (
+            portfolio_data.get("symbols", [])
+            if isinstance(portfolio_data, dict)
+            else []
+        )
         news_obs = _build_news_observation(symbols)
         observations.append(news_obs)
 
@@ -402,11 +436,15 @@ class ChatAgent:
             or StrOutputParser is object
         ):
             reply = self._fallback_reply(message, observations)
-            return ChatAgentResponse(reply=reply, observations=observations, used_fallback=True)
+            return ChatAgentResponse(
+                reply=reply, observations=observations, used_fallback=True
+            )
 
         chain = self._prompt | self._llm | StrOutputParser()
         try:
-            response_text = chain.invoke({"context": context, "history": history_messages, "input": message})
+            response_text = chain.invoke(
+                {"context": context, "history": history_messages, "input": message}
+            )
             reply_text = response_text.strip()
         except Exception as exc:  # pragma: no cover - fallback se modelo falhar
             reply_text = self._fallback_reply(message, observations)
@@ -423,12 +461,16 @@ class ChatAgent:
             used_fallback=False,
         )
 
-    def _fallback_reply(self, message: str, observations: Sequence[ToolObservation]) -> str:
+    def _fallback_reply(
+        self, message: str, observations: Sequence[ToolObservation]
+    ) -> str:
         lines: List[str] = [
             "Ainda nao consegui consultar o modelo de linguagem, mas aqui vai um resumo rapido com base nos dados locais:",
         ]
 
-        portfolio_obs = next((obs for obs in observations if obs.name == "portfolio_overview"), None)
+        portfolio_obs = next(
+            (obs for obs in observations if obs.name == "portfolio_overview"), None
+        )
         if portfolio_obs and isinstance(portfolio_obs.data, dict):
             totals = portfolio_obs.data.get("totals") or {}
             current_value = totals.get("current_value")
@@ -436,11 +478,15 @@ class ChatAgent:
             pnl_pct = totals.get("pnl_pct")
             resumo = []
             if isinstance(current_value, (int, float)):
-                resumo.append(f"valor atual { _format_currency_brl(float(current_value)) }")
+                resumo.append(
+                    f"valor atual { _format_currency_brl(float(current_value)) }"
+                )
             if isinstance(pnl_abs, (int, float)):
                 delta = _format_currency_brl(float(pnl_abs))
                 if isinstance(pnl_pct, (int, float)):
-                    resumo.append(f"resultado {delta} ({_format_percentage(float(pnl_pct))})")
+                    resumo.append(
+                        f"resultado {delta} ({_format_percentage(float(pnl_pct))})"
+                    )
                 else:
                     resumo.append(f"resultado {delta}")
             if resumo:
@@ -477,7 +523,9 @@ class ChatAgent:
                     lines.append("- Distribuicao por classe:")
                     lines.extend(resumo_classes)
 
-        risk_obs = next((obs for obs in observations if obs.name == "risk_profile"), None)
+        risk_obs = next(
+            (obs for obs in observations if obs.name == "risk_profile"), None
+        )
         if risk_obs and isinstance(risk_obs.data, dict):
             profile = risk_obs.data.get("profile")
             score = risk_obs.data.get("score")
@@ -487,7 +535,9 @@ class ChatAgent:
                     trecho += f" (score {score})"
                 lines.append(f"- Perfil de risco: {trecho}.")
 
-        news_obs = next((obs for obs in observations if obs.name == "market_news"), None)
+        news_obs = next(
+            (obs for obs in observations if obs.name == "market_news"), None
+        )
         if news_obs and isinstance(news_obs.data, dict):
             itens = news_obs.data.get("items") or []
             if isinstance(itens, list) and itens:
@@ -497,25 +547,12 @@ class ChatAgent:
                     source = item.get("source") or "fonte desconhecida"
                     lines.append(f"  - {headline} ({source})")
 
-        lines.append("Quando o assistente de IA estiver ativo, trarei uma analise personalizada sobre a sua pergunta.")
+        lines.append(
+            "Quando o assistente de IA estiver ativo, trarei uma analise personalizada sobre a sua pergunta."
+        )
 
         reply = "\n".join(lines)
         max_len = 900
         if len(reply) > max_len:
             reply = reply[:max_len].rsplit("\n", 1)[0] + "\n..."
         return reply
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

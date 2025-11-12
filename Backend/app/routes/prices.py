@@ -85,19 +85,21 @@ class QuoteRefreshRequest(BaseModel):
 
 def _load_assets_by_symbol(db: Session, symbols: Iterable[str]) -> dict[str, Asset]:
     records = (
-        db.query(Asset)
-        .filter(Asset.symbol.in_([s.upper() for s in symbols]))
-        .all()
+        db.query(Asset).filter(Asset.symbol.in_([s.upper() for s in symbols])).all()
     )
     return {asset.symbol.upper(): asset for asset in records}
 
 
 def _serialize_quote(asset: Asset) -> dict:
     return {
-        "price": float(asset.last_quote_price)
-        if asset.last_quote_price is not None
-        else None,
-        "retrieved_at": asset.last_quote_at.isoformat() if asset.last_quote_at else None,
+        "price": (
+            float(asset.last_quote_price)
+            if asset.last_quote_price is not None
+            else None
+        ),
+        "retrieved_at": (
+            asset.last_quote_at.isoformat() if asset.last_quote_at else None
+        ),
     }
 
 
@@ -165,7 +167,9 @@ def refresh_all_quotes(
     if refreshed_any:
         db.commit()
 
-    return {"quotes": {symbol: _serialize_quote(asset) for symbol, asset in assets.items()}}
+    return {
+        "quotes": {symbol: _serialize_quote(asset) for symbol, asset in assets.items()}
+    }
 
 
 @router.get("/latest/{symbol}")

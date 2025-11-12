@@ -11,7 +11,9 @@ def _ts(hours_ago: int = 0) -> int:
     return int(dt.timestamp())
 
 
-def _payload(title: str, link: str, publisher: str, tickers: list[str], hours_ago: int = 0) -> dict:
+def _payload(
+    title: str, link: str, publisher: str, tickers: list[str], hours_ago: int = 0
+) -> dict:
     return {
         "title": title,
         "link": link,
@@ -149,7 +151,9 @@ def test_fetch_news_matches_related_tickers(monkeypatch):
         include_debug=True,
     )
 
-    assert response["items"], "Deveria retornar itens mesmo quando apenas related tickers existem"
+    assert response[
+        "items"
+    ], "Deveria retornar itens mesmo quando apenas related tickers existem"
     item = response["items"][0]
     assert item["primary_symbol"] == "PETR4.SA"
     assert item["matched_symbols"] == ["PETR4.SA"]

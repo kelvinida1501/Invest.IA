@@ -204,8 +204,14 @@ def _normalize_single(symbol: str, raw: dict) -> Optional[NormalizedNews]:
     # URL: link | content.canonicalUrl.url | content.clickThroughUrl.url
     url = (
         raw.get("link")
-        or (isinstance(node.get("canonicalUrl"), dict) and node["canonicalUrl"].get("url"))
-        or (isinstance(node.get("clickThroughUrl"), dict) and node["clickThroughUrl"].get("url"))
+        or (
+            isinstance(node.get("canonicalUrl"), dict)
+            and node["canonicalUrl"].get("url")
+        )
+        or (
+            isinstance(node.get("clickThroughUrl"), dict)
+            and node["clickThroughUrl"].get("url")
+        )
     )
 
     # Title and summary
@@ -220,11 +226,18 @@ def _normalize_single(symbol: str, raw: dict) -> Optional[NormalizedNews]:
     published_at = (
         _extract_datetime(raw.get("providerPublishTime"))
         or _extract_datetime(raw.get("timePublished"))
-        or _parse_iso_dt(node.get("pubDate") or node.get("displayTime") or node.get("publishedAt") or node.get("publishTime"))
+        or _parse_iso_dt(
+            node.get("pubDate")
+            or node.get("displayTime")
+            or node.get("publishedAt")
+            or node.get("publishTime")
+        )
     )
 
     # Image
-    image = _pick_image(node) or (_pick_image(raw) if isinstance(raw.get("thumbnail"), dict) else None)
+    image = _pick_image(node) or (
+        _pick_image(raw) if isinstance(raw.get("thumbnail"), dict) else None
+    )
 
     # Related tickers
     related = set()
@@ -257,9 +270,8 @@ def _merge_news(existing: NormalizedNews, incoming: NormalizedNews) -> Normalize
         existing.summary = incoming.summary
     if not existing.image_url and incoming.image_url:
         existing.image_url = incoming.image_url
-    if (
-        incoming.published_at
-        and (not existing.published_at or incoming.published_at > existing.published_at)
+    if incoming.published_at and (
+        not existing.published_at or incoming.published_at > existing.published_at
     ):
         existing.published_at = incoming.published_at
     if not existing.source and incoming.source:
@@ -403,7 +415,9 @@ def fetch_news_for_symbols(
                 "summary": item.summary,
                 "url": item.url,
                 "source": item.source,
-                "published_at": item.published_at.isoformat() if item.published_at else None,
+                "published_at": (
+                    item.published_at.isoformat() if item.published_at else None
+                ),
                 "_published_ts": published_ts,
                 "image_url": item.image_url,
                 "tickers": sorted(item.related_tickers),
@@ -414,7 +428,9 @@ def fetch_news_for_symbols(
         )
 
     for sym in symbols_upper:
-        stats_after_cutoff[sym] = sum(1 for row in rows if sym in row["matched_symbols"])
+        stats_after_cutoff[sym] = sum(
+            1 for row in rows if sym in row["matched_symbols"]
+        )
 
     if order_by == "recent":
         rows.sort(key=lambda r: r["_published_ts"], reverse=True)
@@ -426,7 +442,11 @@ def fetch_news_for_symbols(
 
     for data in rows:
         available = next(
-            (sym for sym in data["matched_symbols"] if per_symbol_counts.get(sym, 0) < per_symbol_limit),
+            (
+                sym
+                for sym in data["matched_symbols"]
+                if per_symbol_counts.get(sym, 0) < per_symbol_limit
+            ),
             None,
         )
         if not available:
@@ -440,8 +460,14 @@ def fetch_news_for_symbols(
     for data in final_items:
         data.pop("_published_ts", None)
 
-    earliest_ts = min((row.get("_published_ts") for row in rows if row.get("_published_ts")), default=None)
-    latest_ts = max((row.get("_published_ts") for row in rows if row.get("_published_ts")), default=None)
+    earliest_ts = min(
+        (row.get("_published_ts") for row in rows if row.get("_published_ts")),
+        default=None,
+    )
+    latest_ts = max(
+        (row.get("_published_ts") for row in rows if row.get("_published_ts")),
+        default=None,
+    )
 
     meta = {
         "fetched": len(rows),
@@ -470,8 +496,16 @@ def fetch_news_for_symbols(
             "after_cutoff": stats_after_cutoff,
             "cache_keys": list(_CACHE.keys()),
             "cutoff": cutoff.isoformat(),
-            "latest_row": datetime.fromtimestamp(latest_ts, tz=timezone.utc).isoformat() if latest_ts else None,
-            "earliest_row": datetime.fromtimestamp(earliest_ts, tz=timezone.utc).isoformat() if earliest_ts else None,
+            "latest_row": (
+                datetime.fromtimestamp(latest_ts, tz=timezone.utc).isoformat()
+                if latest_ts
+                else None
+            ),
+            "earliest_row": (
+                datetime.fromtimestamp(earliest_ts, tz=timezone.utc).isoformat()
+                if earliest_ts
+                else None
+            ),
             "reason": reason,
         }
 

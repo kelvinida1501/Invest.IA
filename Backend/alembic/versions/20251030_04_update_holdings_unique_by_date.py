@@ -19,9 +19,7 @@ depends_on = None
 def upgrade():
     # Remove antiga unicidade por (portfolio_id, asset_id)
     try:
-        op.drop_constraint(
-            "uq_holdings_portfolio_asset", "holdings", type_="unique"
-        )
+        op.drop_constraint("uq_holdings_portfolio_asset", "holdings", type_="unique")
     except Exception:
         # Em alguns bancos/estados pode já não existir
         pass
@@ -48,4 +46,3 @@ def downgrade():
     op.create_unique_constraint(
         "uq_holdings_portfolio_asset", "holdings", ["portfolio_id", "asset_id"]
     )
-
