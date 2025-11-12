@@ -70,10 +70,10 @@ ALLOCATION_PROFILES: Dict[str, AllocationProfile] = {
             }
         ),
         bands={
-                "etf": 0.08,
-                "acao": 0.08,
-                "fii": 0.06,
-                "cripto": 0.05,
+            "etf": 0.08,
+            "acao": 0.08,
+            "fii": 0.06,
+            "cripto": 0.05,
         },
         description="Maior exposição a ações e cripto, mantendo FIIs como amortecedor.",
     ),

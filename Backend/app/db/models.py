@@ -94,8 +94,12 @@ class Holding(Base):
 class Transaction(Base):
     __tablename__ = "transactions"
     id = Column(Integer, primary_key=True)
-    portfolio_id = Column(Integer, ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False)
-    asset_id = Column(Integer, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
+    portfolio_id = Column(
+        Integer, ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False
+    )
+    asset_id = Column(
+        Integer, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
+    )
     type = Column(String, nullable=False)  # buy|sell
     quantity = Column(Float, nullable=False)
     price = Column(Float, nullable=False)
@@ -109,7 +113,12 @@ class Transaction(Base):
 
     portfolio = relationship("Portfolio", back_populates="transactions")
     asset = relationship("Asset")
-    reversal_of = relationship("Transaction", remote_side=[id], backref="reversals", foreign_keys=[reversal_of_id])
+    reversal_of = relationship(
+        "Transaction",
+        remote_side=[id],
+        backref="reversals",
+        foreign_keys=[reversal_of_id],
+    )
 
 
 class AssetPrice(Base):

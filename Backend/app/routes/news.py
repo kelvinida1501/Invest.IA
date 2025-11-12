@@ -61,7 +61,11 @@ def _build_payload(
         }
 
     lookback = timedelta(days=clamped_lookback)
-    order_key = "recent" if order not in ALLOWED_ORDERS else ("recent" if order == "recent" else "score")
+    order_key = (
+        "recent"
+        if order not in ALLOWED_ORDERS
+        else ("recent" if order == "recent" else "score")
+    )
     return fetch_news_for_symbols(
         symbols,
         lookback=lookback,
@@ -74,12 +78,25 @@ def _build_payload(
 
 @router.get("")
 def list_news(
-    total_limit: int = Query(DEFAULT_TOTAL_LIMIT, ge=1, le=50, description="Total de notícias agregadas."),
-    per_symbol_limit: int = Query(DEFAULT_PER_SYMBOL, ge=1, le=10, description="Máximo de notícias por ativo."),
-    lookback_days: int = Query(DEFAULT_LOOKBACK_DAYS, ge=1, le=DEFAULT_LOOKBACK_DAYS, description="Janela de busca em dias (máx. 7)."),
+    total_limit: int = Query(
+        DEFAULT_TOTAL_LIMIT, ge=1, le=50, description="Total de notícias agregadas."
+    ),
+    per_symbol_limit: int = Query(
+        DEFAULT_PER_SYMBOL, ge=1, le=10, description="Máximo de notícias por ativo."
+    ),
+    lookback_days: int = Query(
+        DEFAULT_LOOKBACK_DAYS,
+        ge=1,
+        le=DEFAULT_LOOKBACK_DAYS,
+        description="Janela de busca em dias (máx. 7).",
+    ),
     order: str = Query(DEFAULT_ORDER, description="Ordenação: recent | relevance."),
-    symbols: Optional[str] = Query(None, description="Lista de tickers separados por vírgula para debug."),
-    debug: bool = Query(False, description="Retorna metadados extras para diagnóstico."),
+    symbols: Optional[str] = Query(
+        None, description="Lista de tickers separados por vírgula para debug."
+    ),
+    debug: bool = Query(
+        False, description="Retorna metadados extras para diagnóstico."
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

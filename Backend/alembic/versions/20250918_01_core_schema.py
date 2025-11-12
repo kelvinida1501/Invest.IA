@@ -79,7 +79,7 @@ def upgrade():
             nullable=False,
         ),
         sa.Column("quantity", sa.Float(), nullable=False),
-        sa.Column("avg_price", sa.Float(), nullable=False),        
+        sa.Column("avg_price", sa.Float(), nullable=False),
         sa.Column("purchase_date", sa.Date(), nullable=True),
         sa.Column(
             "created_at", sa.DateTime(timezone=False), server_default=sa.text("NOW()")
@@ -201,4 +201,3 @@ def downgrade():
     op.drop_table("portfolios")
     op.drop_table("assets")
     op.drop_table("users")
-

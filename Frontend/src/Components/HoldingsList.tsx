@@ -5,7 +5,7 @@ import type { PortfolioHolding as Holding } from '../types/portfolio';
 type Props = {
   holdings: Holding[];
   onRefresh: () => void;
-  onRegisterSearchTrigger?: (open: () => void) => void;
+  onRegisterSearchTrigger?: (_open: () => void) => void;
 };
 
 type SearchResult = {
@@ -43,11 +43,6 @@ const CLASS_LABELS: Record<string, string> = {
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
-});
-
-const numberFormatter = new Intl.NumberFormat('pt-BR', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
 });
 
 const isoToday = () => new Date().toISOString().slice(0, 10);
@@ -808,5 +803,6 @@ export default function HoldingsList({
     </div>
   );
 }
+
 
 

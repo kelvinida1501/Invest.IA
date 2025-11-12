@@ -92,23 +92,21 @@ def rebalance_portfolio(
         class_totals.setdefault(cls, 0.0)
 
     current_pct: Dict[str, float] = {
-        cls: (val / total_value) if total_value > 0 else 0.0 for cls, val in class_totals.items()
+        cls: (val / total_value) if total_value > 0 else 0.0
+        for cls, val in class_totals.items()
     }
 
     deltas: Dict[str, float] = {}
     deficits: List[Tuple[str, float]] = []
     surpluses: List[Tuple[str, float]] = []
     notes: List[str] = []
-    within_bands = True
 
     for cls, target_pct in targets.items():
-        class_value = class_totals.get(cls, 0.0)
         current = current_pct.get(cls, 0.0)
         band = bands.get(cls, 0.0)
         delta_value = (target_pct - current) * total_value
 
         if abs(current - target_pct) > band + 1e-6:
-            within_bands = False
             deltas[cls] = delta_value
             if delta_value > 0:
                 deficits.append((cls, delta_value))
@@ -142,7 +140,9 @@ def rebalance_portfolio(
         buy_budget = min(total_buy, max_turnover * total_value)
         net_cash_flow = buy_budget
         if allow_sells:
-            notes.append("Sem posições excedentes suficientes; aporte externo necessário.")
+            notes.append(
+                "Sem posições excedentes suficientes; aporte externo necessário."
+            )
         else:
             notes.append("Vendas desativadas; aporte externo necessário.")
         if buy_budget < total_buy:
@@ -158,7 +158,13 @@ def rebalance_portfolio(
         return RebalanceResult(
             holdings=holdings,
             class_summaries=_build_class_summaries(
-                targets, bands, class_totals, current_pct, class_totals, total_value, total_value
+                targets,
+                bands,
+                class_totals,
+                current_pct,
+                class_totals,
+                total_value,
+                total_value,
             ),
             suggestions=[],
             within_bands=True,
@@ -173,10 +179,14 @@ def rebalance_portfolio(
 
     if total_buy > 0 and buy_budget > 0:
         for cls, deficit_value in deficits:
-            class_buy_alloc[cls] = (deficit_value / total_buy) * buy_budget if total_buy > 0 else 0.0
+            class_buy_alloc[cls] = (
+                (deficit_value / total_buy) * buy_budget if total_buy > 0 else 0.0
+            )
     if total_sell > 0 and sell_budget > 0:
         for cls, surplus_value in surpluses:
-            class_sell_alloc[cls] = (surplus_value / total_sell) * sell_budget if total_sell > 0 else 0.0
+            class_sell_alloc[cls] = (
+                (surplus_value / total_sell) * sell_budget if total_sell > 0 else 0.0
+            )
 
     delta_by_symbol: Dict[str, float] = {}
 
@@ -186,16 +196,22 @@ def rebalance_portfolio(
             continue
         class_assets = [h for h in holdings if h.asset_class == cls and h.price > 0]
         if not class_assets:
-            notes.append(f"Sem ativos cadastrados em {cls} para receber compras sugeridas.")
+            notes.append(
+                f"Sem ativos cadastrados em {cls} para receber compras sugeridas."
+            )
             continue
         class_total = sum(h.value for h in class_assets)
         if class_total <= 0:
             equal_share = amount / len(class_assets)
             for h in class_assets:
-                delta_by_symbol[h.symbol] = delta_by_symbol.get(h.symbol, 0.0) + equal_share
+                delta_by_symbol[h.symbol] = (
+                    delta_by_symbol.get(h.symbol, 0.0) + equal_share
+                )
             continue
         for h in class_assets:
-            weight = h.value / class_total if class_total > 0 else 1.0 / len(class_assets)
+            weight = (
+                h.value / class_total if class_total > 0 else 1.0 / len(class_assets)
+            )
             delta_val = amount * weight
             delta_by_symbol[h.symbol] = delta_by_symbol.get(h.symbol, 0.0) + delta_val
 
@@ -205,13 +221,17 @@ def rebalance_portfolio(
             continue
         class_assets = [h for h in holdings if h.asset_class == cls and h.price > 0]
         if not class_assets:
-            notes.append(f"Sem ativos cadastrados em {cls} para realizar vendas sugeridas.")
+            notes.append(
+                f"Sem ativos cadastrados em {cls} para realizar vendas sugeridas."
+            )
             continue
         class_total = sum(h.value for h in class_assets)
         if class_total <= 0:
             continue
         for h in class_assets:
-            weight = h.value / class_total if class_total > 0 else 1.0 / len(class_assets)
+            weight = (
+                h.value / class_total if class_total > 0 else 1.0 / len(class_assets)
+            )
             delta_val = -amount * weight
             # Garante que não vendemos mais do que a posição
             max_sell = -h.value
@@ -229,18 +249,30 @@ def rebalance_portfolio(
     for h in holdings:
         delta_val = delta_by_symbol.get(h.symbol, 0.0)
         if abs(delta_val) < min_trade_value or h.price <= 0:
-            post_class_totals[h.asset_class] = post_class_totals.get(h.asset_class, 0.0) + delta_val
+            post_class_totals[h.asset_class] = (
+                post_class_totals.get(h.asset_class, 0.0) + delta_val
+            )
             continue
         qty = delta_val / h.price
         post_value = h.value + delta_val
-        post_class_totals[h.asset_class] = post_class_totals.get(h.asset_class, 0.0) + delta_val
+        post_class_totals[h.asset_class] = (
+            post_class_totals.get(h.asset_class, 0.0) + delta_val
+        )
 
         action = "comprar" if delta_val > 0 else "vender"
         weight_before = h.value / total_value if total_value > 0 else 0.0
         weight_after = post_value / total_after if total_after > 0 else 0.0
 
-        class_weight_before = class_totals.get(h.asset_class, 0.0) / total_value if total_value > 0 else 0.0
-        class_weight_after = post_class_totals.get(h.asset_class, 0.0) / total_after if total_after > 0 else 0.0
+        class_weight_before = (
+            class_totals.get(h.asset_class, 0.0) / total_value
+            if total_value > 0
+            else 0.0
+        )
+        class_weight_after = (
+            post_class_totals.get(h.asset_class, 0.0) / total_after
+            if total_after > 0
+            else 0.0
+        )
 
         rationale = (
             f"{'Aumentar' if action == 'comprar' else 'Reduzir'} participação em {h.asset_class} "
@@ -271,7 +303,11 @@ def rebalance_portfolio(
     total_sales = -sum(s.value for s in suggestions if s.value < 0)
 
     if allow_sells:
-        turnover = (abs(total_purchases) + abs(total_sales)) / total_value if total_value > 0 else 0.0
+        turnover = (
+            (abs(total_purchases) + abs(total_sales)) / total_value
+            if total_value > 0
+            else 0.0
+        )
     else:
         turnover = abs(total_purchases) / total_value if total_value > 0 else 0.0
 
@@ -287,7 +323,10 @@ def rebalance_portfolio(
 
     within_bands_after = True
     for cls, summary in class_summaries.items():
-        if summary.post_pct < summary.floor_pct - 1e-6 or summary.post_pct > summary.ceiling_pct + 1e-6:
+        if (
+            summary.post_pct < summary.floor_pct - 1e-6
+            or summary.post_pct > summary.ceiling_pct + 1e-6
+        ):
             within_bands_after = False
             break
 

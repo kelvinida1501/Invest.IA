@@ -108,12 +108,20 @@ def _hit_yahoo(query: str, limit: int) -> List[dict]:
                     }
                     for item in quotes[:limit]
                 ]
-                logger.debug("Yahoo search success query=%s limit=%s results=%s", query, limit, len(results))
+                logger.debug(
+                    "Yahoo search success query=%s limit=%s results=%s",
+                    query,
+                    limit,
+                    len(results),
+                )
                 return results
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
             logger.warning(
-                "Yahoo search failed status=%s query=%s attempt=%s", status, query, attempt
+                "Yahoo search failed status=%s query=%s attempt=%s",
+                status,
+                query,
+                attempt,
             )
             if status == 429 and attempt == 0:
                 time.sleep(1.5)
@@ -129,7 +137,9 @@ def _hit_yahoo(query: str, limit: int) -> List[dict]:
             ) from exc
         except Exception as exc:  # pragma: no cover
             logger.exception("Erro inesperado ao consultar Yahoo: query=%s", query)
-            raise HTTPException(status_code=502, detail="Nao foi possivel obter dados do Yahoo") from exc
+            raise HTTPException(
+                status_code=502, detail="Nao foi possivel obter dados do Yahoo"
+            ) from exc
 
     return []
 

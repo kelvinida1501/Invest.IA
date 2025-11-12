@@ -53,13 +53,23 @@ def fetch_latest_quote(symbol: str) -> tuple[float, datetime, Optional[str]]:
     if price is None:
         raise QuoteNotFoundError(symbol)
 
-    return float(price), _now_utc(), currency.upper() if isinstance(currency, str) else None
+    return (
+        float(price),
+        _now_utc(),
+        currency.upper() if isinstance(currency, str) else None,
+    )
 
 
-def _upsert_price_row(db: Session, asset_id: int, retrieved_at: datetime, price: float) -> None:
+def _upsert_price_row(
+    db: Session, asset_id: int, retrieved_at: datetime, price: float
+) -> None:
     row = (
         db.query(AssetPrice)
-        .filter(and_(AssetPrice.asset_id == asset_id, AssetPrice.date == retrieved_at.date()))
+        .filter(
+            and_(
+                AssetPrice.asset_id == asset_id, AssetPrice.date == retrieved_at.date()
+            )
+        )
         .first()
     )
     if row:

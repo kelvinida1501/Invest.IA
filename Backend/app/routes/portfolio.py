@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Tuple
-from math import isfinite
 
 from app.db.base import get_db
 from app.db.models import (
@@ -87,7 +86,9 @@ def _pick_price_rows(
     db: Session,
     asset: Asset,
 ) -> Tuple[Optional[float], Optional[datetime], Optional[float], Optional[datetime]]:
-    current_price = float(asset.last_quote_price) if asset.last_quote_price is not None else None
+    current_price = (
+        float(asset.last_quote_price) if asset.last_quote_price is not None else None
+    )
     current_at = asset.last_quote_at
 
     # Busca últimos fechamentos registrados para fallback e referência anterior
@@ -174,14 +175,20 @@ def _build_portfolio_snapshot(
             prev_price_raw = price_now
             prev_at = price_at
 
-        prev_converted, _, _, _ = convert_to_brl(float(prev_price_raw), asset.currency, fx_cache)
+        prev_converted, _, _, _ = convert_to_brl(
+            float(prev_price_raw), asset.currency, fx_cache
+        )
         previous_value = quantity * prev_converted
         previous_total += previous_value
 
         pnl_abs_item = current_value - invested_value
-        pnl_pct_item = (pnl_abs_item / invested_value * 100.0) if invested_value > 0 else 0.0
+        pnl_pct_item = (
+            (pnl_abs_item / invested_value * 100.0) if invested_value > 0 else 0.0
+        )
         day_change_abs = current_value - previous_value
-        day_change_pct = (day_change_abs / previous_value * 100.0) if previous_value > 0 else 0.0
+        day_change_pct = (
+            (day_change_abs / previous_value * 100.0) if previous_value > 0 else 0.0
+        )
 
         itens.append(
             {
@@ -208,11 +215,15 @@ def _build_portfolio_snapshot(
                 "pnl_pct": pnl_pct_item,
                 "day_change_abs": day_change_abs,
                 "day_change_pct": day_change_pct,
-                "created_at": holding.created_at.isoformat() if holding.created_at else None,
-                "updated_at": holding.updated_at.isoformat() if holding.updated_at else None,
-                "purchase_date": holding.purchase_date.isoformat()
-                if holding.purchase_date
-                else None,
+                "created_at": (
+                    holding.created_at.isoformat() if holding.created_at else None
+                ),
+                "updated_at": (
+                    holding.updated_at.isoformat() if holding.updated_at else None
+                ),
+                "purchase_date": (
+                    holding.purchase_date.isoformat() if holding.purchase_date else None
+                ),
             }
         )
 
@@ -361,9 +372,9 @@ def _generate_portfolio_timeseries(
     earliest = _derive_portfolio_earliest_date(portfolio, holdings, transactions)
     start_date = _resolve_range_start(range_key, earliest, today)
 
-    asset_ids = {
-        tx.asset_id for tx in transactions if tx.asset_id is not None
-    } | {h.asset_id for h in holdings}
+    asset_ids = {tx.asset_id for tx in transactions if tx.asset_id is not None} | {
+        h.asset_id for h in holdings
+    }
     if not asset_ids:
         return {
             "as_of": today.isoformat(),
@@ -381,9 +392,7 @@ def _generate_portfolio_timeseries(
 
     missing_ids = asset_ids - set(asset_map.keys())
     if missing_ids:
-        extra_assets = (
-            db.query(Asset).filter(Asset.id.in_(list(missing_ids))).all()
-        )
+        extra_assets = db.query(Asset).filter(Asset.id.in_(list(missing_ids))).all()
         for asset in extra_assets:
             asset_map[asset.id] = asset
 
@@ -560,8 +569,8 @@ def portfolio_summary(
             "itens": [],
         }
 
-    itens, invested_total, market_total, previous_total, fx_meta, as_of = _build_portfolio_snapshot(
-        db, portfolio
+    itens, invested_total, market_total, previous_total, fx_meta, as_of = (
+        _build_portfolio_snapshot(db, portfolio)
     )
 
     pnl_abs = market_total - invested_total
@@ -774,7 +783,9 @@ def portfolio_transactions(
     user: User = Depends(get_current_user),
 ):
     if start and end and start > end:
-        raise HTTPException(status_code=422, detail="Data inicial maior que a data final.")
+        raise HTTPException(
+            status_code=422, detail="Data inicial maior que a data final."
+        )
 
     portfolio = (
         db.query(Portfolio)
@@ -1053,7 +1064,9 @@ def portfolio_rebalance(
                 .order_by(AssetPrice.date.desc())
                 .first()
             )
-            raw_price = float(last_price_row.close) if last_price_row else float(h.avg_price)
+            raw_price = (
+                float(last_price_row.close) if last_price_row else float(h.avg_price)
+            )
 
         converted_price, _, _, _ = convert_to_brl(raw_price, asset.currency, fx_cache)
         value = float(h.quantity) * converted_price
@@ -1098,7 +1111,9 @@ def portfolio_rebalance(
         prefer_etfs=prefer_etfs,
     )
 
-    result = rebalance_portfolio(holdings, allocation.weights, allocation.bands, options)
+    result = rebalance_portfolio(
+        holdings, allocation.weights, allocation.bands, options
+    )
 
     class_payload: Dict[str, dict] = {}
     for cls, summary in result.class_summaries.items():
@@ -1155,4 +1170,3 @@ def portfolio_rebalance(
         "as_of": result.priced_at.isoformat(),
         "options": options_payload,
     }
-

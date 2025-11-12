@@ -16,9 +16,7 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column(
-        "risk_profiles", sa.Column("answers", sa.Text(), nullable=True)
-    )
+    op.add_column("risk_profiles", sa.Column("answers", sa.Text(), nullable=True))
     op.add_column(
         "risk_profiles", sa.Column("questionnaire_version", sa.String(), nullable=True)
     )
