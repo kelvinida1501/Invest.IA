@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Sequence
@@ -29,6 +30,9 @@ from app.db.models import (
 from app.services import news
 from app.services.allocations import CLASS_LABELS, normalize_asset_class
 from app.settings import get_settings
+
+
+logger = logging.getLogger(__name__)
 
 
 SYSTEM_PROMPT = """
@@ -178,8 +182,8 @@ def _build_portfolio_observation(db: Session, user: User) -> ToolObservation:
 
     lines: List[str] = []
     lines.append(
-        f"Carteira '{portfolio.name}': valor atual { _format_currency_brl(totals['current_value']) } "
-        f"(resultado acumulado { _format_currency_brl(pnl_abs_total) } | {_format_percentage(pnl_pct_total)})."
+        f"Carteira '{portfolio.name}': valor atual {_format_currency_brl(totals['current_value'])} "
+        f"(resultado acumulado {_format_currency_brl(pnl_abs_total)} | {_format_percentage(pnl_pct_total)})."
     )
 
     if holdings_summary:
@@ -191,7 +195,7 @@ def _build_portfolio_observation(db: Session, user: User) -> ToolObservation:
                 else f"{_format_currency_brl(row['current_value'])}"
             )
             lines.append(
-                f"- {row['symbol']}: {row['class']} | { _format_currency_brl(row['current_value']) } | {pnl_label}"
+                f"- {row['symbol']}: {row['class']} | {_format_currency_brl(row['current_value'])} | {pnl_label}"
             )
     else:
         lines.append("Nenhuma posicao cadastrada ate o momento.")
@@ -358,8 +362,9 @@ class ChatAgent:
         self._settings = get_settings()
         try:
             self._llm = llm or self._create_default_llm()
-        except Exception as _exc:
+        except Exception as exc:
             # Fail-safe: keep server up and use fallback if LLM init fails
+            logger.exception("Failed to initialize LLM: %s", exc)
             self._llm = None
         self._prompt = None if ChatPromptTemplate is object else self._build_prompt()
 
@@ -465,7 +470,10 @@ class ChatAgent:
         self, message: str, observations: Sequence[ToolObservation]
     ) -> str:
         lines: List[str] = [
-            "Ainda nao consegui consultar o modelo de linguagem, mas aqui vai um resumo rapido com base nos dados locais:",
+            (
+                "Ainda nao consegui consultar o modelo de linguagem, mas aqui vai um resumo "
+                "rapido com base nos dados locais:"
+            ),
         ]
 
         portfolio_obs = next(
@@ -479,7 +487,7 @@ class ChatAgent:
             resumo = []
             if isinstance(current_value, (int, float)):
                 resumo.append(
-                    f"valor atual { _format_currency_brl(float(current_value)) }"
+                    f"valor atual {_format_currency_brl(float(current_value))}"
                 )
             if isinstance(pnl_abs, (int, float)):
                 delta = _format_currency_brl(float(pnl_abs))
@@ -514,11 +522,15 @@ class ChatAgent:
             classes = portfolio_obs.data.get("class_breakdown") or []
             if isinstance(classes, list) and classes:
                 top_classes = classes[:3]
-                resumo_classes = [
-                    f"  - {item.get('label', item.get('class', 'Classe'))}: {_format_percentage(float(item.get('share_pct', 0.0)))}"
-                    for item in top_classes
-                    if isinstance(item.get("share_pct"), (int, float))
-                ]
+                resumo_classes: List[str] = []
+                for item in top_classes:
+                    share = item.get("share_pct")
+                    if not isinstance(share, (int, float)):
+                        continue
+                    label = item.get("label", item.get("class", "Classe"))
+                    resumo_classes.append(
+                        f"  - {label}: {_format_percentage(float(share))}"
+                    )
                 if resumo_classes:
                     lines.append("- Distribuicao por classe:")
                     lines.extend(resumo_classes)

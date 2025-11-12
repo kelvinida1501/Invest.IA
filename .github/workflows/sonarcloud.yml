@@ -50,7 +50,7 @@ jobs:
           args: >
             -Dsonar.organization=${{ secrets.SONAR_ORG }}
             -Dsonar.projectKey=invest-ia_front
-            -Dsonar.projectName=InvestIA Frontend
+            -Dsonar.projectName=invest-ia_front
             -Dsonar.sources=src
             -Dsonar.exclusions=dist/**,node_modules/**,**/*.d.ts
 
@@ -89,7 +89,7 @@ jobs:
           args: >
             -Dsonar.organization=${{ secrets.SONAR_ORG }}
             -Dsonar.projectKey=invest-ia_back
-            -Dsonar.projectName=InvestIA Backend
+            -Dsonar.projectName=invest-ia_back
             -Dsonar.sources=app
             -Dsonar.tests=tests
             -Dsonar.test.inclusions=tests/**

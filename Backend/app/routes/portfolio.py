@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Tuple
-from math import isfinite
 
 from app.db.base import get_db
 from app.db.models import (

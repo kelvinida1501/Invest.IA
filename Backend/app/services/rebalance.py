@@ -100,16 +100,13 @@ def rebalance_portfolio(
     deficits: List[Tuple[str, float]] = []
     surpluses: List[Tuple[str, float]] = []
     notes: List[str] = []
-    within_bands = True
 
     for cls, target_pct in targets.items():
-        class_value = class_totals.get(cls, 0.0)
         current = current_pct.get(cls, 0.0)
         band = bands.get(cls, 0.0)
         delta_value = (target_pct - current) * total_value
 
         if abs(current - target_pct) > band + 1e-6:
-            within_bands = False
             deltas[cls] = delta_value
             if delta_value > 0:
                 deficits.append((cls, delta_value))

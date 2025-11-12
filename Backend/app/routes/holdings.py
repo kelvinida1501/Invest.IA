@@ -216,7 +216,10 @@ def update_holding(
         if conflict:
             raise HTTPException(
                 status_code=409,
-                detail="Ja existe compra deste ativo nesta data. Escolha outra data ou edite o registro correspondente.",
+                detail=(
+                    "Ja existe compra deste ativo nesta data. "
+                    "Escolha outra data ou edite o registro correspondente."
+                ),
             )
         holding.purchase_date = body.purchase_date
 

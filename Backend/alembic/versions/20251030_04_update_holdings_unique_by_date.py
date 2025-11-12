@@ -7,7 +7,6 @@ Create Date: 2025-10-30
 """
 
 from alembic import op
-import sqlalchemy as sa
 
 
 revision = "20251030_04_update_holdings"
