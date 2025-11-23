@@ -869,7 +869,3 @@ export default function HoldingsList({
     </div>
   );
 }
-
-
-
-
