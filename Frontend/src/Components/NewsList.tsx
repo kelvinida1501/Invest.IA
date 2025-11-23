@@ -76,10 +76,7 @@ function mapSentiment(sentiment?: Sentiment) {
   return { label: 'Neutro', tone: 'neutral' as const, score: sentiment.score };
 }
 
-function formatScore(value?: number) {
-  if (typeof value !== 'number' || Number.isNaN(value)) return null;
-  return Math.round(value * 100);
-}
+// Removido: cálculo de porcentagem do sentimento, não exibido na UI
 
 function makeTickerLabel(ticker: string) {
   return ticker.replace('.SA', '');
@@ -154,7 +151,6 @@ export default function NewsList() {
     <div className="news-grid">
       {items.map((item) => {
         const sentiment = mapSentiment(item.sentiment);
-        const scorePercent = formatScore(sentiment.score);
         const timeLabel = relativeTime(item.published_at);
         const fallbackSource = item.source || 'Fonte não informada';
         const summary = item.summary?.trim() ?? '';
@@ -182,7 +178,6 @@ export default function NewsList() {
               </div>
               <div className={`news-card-sentiment ${sentiment.tone}`}>
                 <span>{sentiment.label}</span>
-                {typeof scorePercent === 'number' && <span className="news-card-score">{scorePercent}%</span>}
               </div>
               <h3 className="news-card-title">{item.headline}</h3>
               {summary && <p className="news-card-summary">{summary}</p>}

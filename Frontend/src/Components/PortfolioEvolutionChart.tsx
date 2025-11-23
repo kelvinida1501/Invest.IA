@@ -37,7 +37,9 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
 type SeriesVisibility = {
   market: boolean;
   invested: boolean;
-  pnl: boolean;
+  pnlTotal: boolean;
+  pnlUnrealized: boolean;
+  pnlRealized: boolean;
 };
 
 function formatCurrency(value: number | null | undefined) {
@@ -97,7 +99,9 @@ export default function PortfolioEvolutionChart({ refreshKey = 0 }: EvolutionPro
   const [visibility, setVisibility] = React.useState<SeriesVisibility>({
     market: true,
     invested: true,
-    pnl: false,
+    pnlTotal: false,
+    pnlUnrealized: false,
+    pnlRealized: false,
   });
 
   const loadData = React.useCallback(
@@ -164,15 +168,31 @@ export default function PortfolioEvolutionChart({ refreshKey = 0 }: EvolutionPro
               checked={visibility.invested}
               onChange={() => toggleSeries('invested')}
             />
-            Investido
+            Aportes líquidos
           </label>
           <label>
             <input
               type="checkbox"
-              checked={visibility.pnl}
-              onChange={() => toggleSeries('pnl')}
+              checked={visibility.pnlTotal}
+              onChange={() => toggleSeries('pnlTotal')}
             />
-            P/L
+            P/L total
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={visibility.pnlUnrealized}
+              onChange={() => toggleSeries('pnlUnrealized')}
+            />
+            P/L não realizado
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={visibility.pnlRealized}
+              onChange={() => toggleSeries('pnlRealized')}
+            />
+            P/L realizado
           </label>
         </div>
       </div>
@@ -217,18 +237,38 @@ export default function PortfolioEvolutionChart({ refreshKey = 0 }: EvolutionPro
                 <Line
                   type="monotone"
                   dataKey="invested"
-                  name="Investido"
+                  name="Aportes líquidos"
                   stroke="#4cafef"
                   strokeWidth={2}
                   dot={false}
                 />
               )}
-              {visibility.pnl && (
+              {visibility.pnlTotal && (
                 <Line
                   type="monotone"
-                  dataKey="pnl"
-                  name="P/L"
-                  stroke="#66bb6a"
+                  dataKey="pnl_total"
+                  name="P/L total"
+                  stroke="#2e7d32"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              )}
+              {visibility.pnlUnrealized && (
+                <Line
+                  type="monotone"
+                  dataKey="pnl_unrealized"
+                  name="P/L não realizado"
+                  stroke="#ef6c00"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              )}
+              {visibility.pnlRealized && (
+                <Line
+                  type="monotone"
+                  dataKey="pnl_realized"
+                  name="P/L realizado"
+                  stroke="#8e24aa"
                   strokeWidth={2}
                   dot={false}
                 />

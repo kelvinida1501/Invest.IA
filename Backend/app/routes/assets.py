@@ -11,6 +11,7 @@ from urllib.parse import quote_plus
 
 from app.db.base import get_db
 from app.db.models import Asset
+from app.services.currency import normalize_currency_code
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,9 @@ class AssetCreate(BaseModel):
     name: str | None = None
     class_: str | None = Field(default=None, alias="class")
     currency: str = "BRL"
+    lot_size: float | None = Field(default=None, gt=0)
+    qty_step: float | None = Field(default=None, gt=0)
+    supports_fractional: bool | None = None
 
     class Config:
         populate_by_name = True
@@ -41,6 +45,9 @@ def asset_to_json(a: Asset):
         "name": a.name,
         "class": a.class_,
         "currency": a.currency,
+        "lot_size": a.lot_size,
+        "qty_step": a.qty_step,
+        "supports_fractional": a.supports_fractional,
     }
 
 
@@ -168,11 +175,20 @@ def create_asset(body: AssetCreate, db: Session = Depends(get_db)):
     if exists:
         return asset_to_json(exists)
 
+    normalized_currency = normalize_currency_code(body.currency, symbol)
+
     a = Asset(
         symbol=symbol,
         name=(body.name or symbol),
         class_=(body.class_ or "acao"),
-        currency=(body.currency or "BRL"),
+        currency=normalized_currency,
+        lot_size=float(body.lot_size) if body.lot_size else 1.0,
+        qty_step=float(body.qty_step) if body.qty_step else 1.0,
+        supports_fractional=(
+            bool(body.supports_fractional)
+            if body.supports_fractional is not None
+            else True
+        ),
     )
     db.add(a)
     db.commit()

@@ -27,8 +27,9 @@
       LLM_PROVIDER: ${LLM_PROVIDER:-openai}
       LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
       CHAT_AGENT_ENABLED: ${CHAT_AGENT_ENABLED:-true}
-      HTTP_PROXY: ${HTTP_PROXY:-}
-      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      LLM_DISABLE_PROXIES: ${LLM_DISABLE_PROXIES:-true}
+      # Removido: HTTP_PROXY/HTTPS_PROXY geravam erro 'proxies' no ChatOpenAI com certas versões do SDK.
+      # Caso precise de proxy corporativo, configure via httpx/http_client específico ou atualize as libs.
     depends_on:
       db:
         condition: service_healthy

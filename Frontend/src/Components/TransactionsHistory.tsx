@@ -65,10 +65,19 @@ const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   currency: 'BRL',
 });
 
-const numberFormatter = new Intl.NumberFormat('pt-BR', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+function formatQuantityValue(value: number) {
+  const abs = Math.abs(value);
+  let maxFractionDigits = 2;
+  if (abs < 1 && abs >= 0.01) {
+    maxFractionDigits = 4;
+  } else if (abs < 0.01) {
+    maxFractionDigits = 8;
+  }
+  return value.toLocaleString('pt-BR', {
+    minimumFractionDigits: Math.min(2, maxFractionDigits),
+    maximumFractionDigits: maxFractionDigits,
+  });
+}
 
 function formatDateTime(iso: string) {
   if (!iso) return '-';
@@ -76,7 +85,7 @@ function formatDateTime(iso: string) {
   if (Number.isNaN(parsed.getTime())) {
     return iso;
   }
-  return parsed.toLocaleDateString('pt-BR');
+  return parsed.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 }
 
 function toInputDate(date: Date) {
@@ -446,7 +455,7 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
                     <td>
                       <span className={`status-badge ${tx.status}`}>{statusLabels[tx.status]}</span>
                     </td>
-                    <td>{numberFormatter.format(tx.quantity)}</td>
+                    <td>{formatQuantityValue(tx.quantity)}</td>
                     <td>{currencyFormatter.format(tx.price)}</td>
                     <td>{currencyFormatter.format(tx.total)}</td>
                     <td>
@@ -502,7 +511,7 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
                   <input
                     className="input"
                     type="number"
-                    step="0.0001"
+                    step="any"
                     min="0"
                     value={editForm.quantity}
                     onChange={(evt) =>
@@ -516,7 +525,7 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
                   <input
                     className="input"
                     type="number"
-                    step="0.0001"
+                    step="any"
                     min="0"
                     value={editForm.price}
                     onChange={(evt) => setEditForm((prev) => ({ ...prev, price: evt.target.value }))}
@@ -647,4 +656,5 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
     </div>
   );
 }
+
 

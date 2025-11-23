@@ -8,6 +8,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from app.db.models import Asset, AssetPrice
+from app.services.currency import normalize_currency_code
 
 
 class QuoteNotFoundError(Exception):
@@ -97,7 +98,7 @@ def refresh_asset_quote(db: Session, asset: Asset, *, force: bool = False) -> bo
     price, retrieved_at, currency = fetch_latest_quote(asset.symbol)
     asset.last_quote_price = price
     asset.last_quote_at = retrieved_at
-    if currency:
-        asset.currency = currency
+    normalized_currency = normalize_currency_code(currency, asset.symbol)
+    asset.currency = normalized_currency
     _upsert_price_row(db, asset.id, retrieved_at, price)
     return True

@@ -3,7 +3,7 @@ from datetime import datetime, date, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from collections import defaultdict
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Literal
 
 from app.db.base import get_db
 from app.db.models import (
@@ -17,8 +17,10 @@ from app.db.models import (
 from app.routes.auth import get_current_user, User  # type: ignore
 from app.services.fx import FxRateNotFoundError, get_fx_rate
 from app.services.history import ensure_history_for_assets
+from app.services.currency import normalize_currency_code
 from app.services.allocations import (
     CLASS_LABELS,
+    AllocationProfile,
     get_allocation_profile,
     normalize_asset_class,
 )
@@ -27,9 +29,38 @@ from app.services.rebalance import (
     RebalanceOptions,
     rebalance_portfolio,
 )
-from pydantic import BaseModel, validator
+from app.services.portfolio_utils import record_transaction
+from pydantic import BaseModel, validator, confloat, constr
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
+
+
+def _resolve_profile_context(
+    db: Session, user_id: int, profile_override: Optional[str]
+) -> tuple[Optional[RiskProfile], AllocationProfile, str, List[str]]:
+    rp = db.query(RiskProfile).filter(RiskProfile.user_id == user_id).first()
+    profile_source = "default"
+    if profile_override:
+        profile_key = profile_override.lower()
+        profile_source = "override"
+    elif rp:
+        profile_key = (rp.profile or "moderado").lower()
+        profile_source = "stored"
+    else:
+        profile_key = "moderado"
+
+    allocation = get_allocation_profile(profile_key)
+
+    rules_applied: List[str] = []
+    if rp and rp.rules:
+        try:
+            loaded_rules = json.loads(rp.rules)
+            if isinstance(loaded_rules, list):
+                rules_applied = [str(item) for item in loaded_rules]
+        except json.JSONDecodeError:
+            rules_applied = []
+
+    return rp, allocation, profile_source, rules_applied
 
 
 def convert_to_brl(
@@ -37,7 +68,7 @@ def convert_to_brl(
     currency: Optional[str],
     fx_cache: Dict[str, tuple[float, Optional[datetime]]],
 ) -> tuple[float, float, Optional[datetime], str]:
-    curr = (currency or "BRL").upper()
+    curr = normalize_currency_code(currency)
     if curr == "BRL":
         return price, 1.0, None, curr
 
@@ -68,6 +99,25 @@ CLASS_NORMALIZATION = {
     "cash": "caixa",
     "renda_fixa": "renda_fixa",
     "bonds": "renda_fixa",
+}
+
+CLASS_CANDIDATES: Dict[str, List[dict]] = {
+    "acao": [
+        {"symbol": "BOVA11", "description": "ETF que replica o Ibovespa"},
+        {"symbol": "SMAL11", "description": "ETF focado em small caps"},
+    ],
+    "etf": [
+        {"symbol": "IVVB11", "description": "Exposicao ao S&P 500 em BRL"},
+        {"symbol": "ACWI", "description": "ETF global de renda variavel"},
+    ],
+    "fii": [
+        {"symbol": "HGLG11", "description": "Fundo logistico de alta liquidez"},
+        {"symbol": "KNRI11", "description": "Fundo multi-estrategia classico"},
+    ],
+    "cripto": [
+        {"symbol": "HASH11", "description": "ETF com cesta de criptoativos"},
+        {"symbol": "BTC", "description": "Exposicao direta a Bitcoin"},
+    ],
 }
 
 
@@ -237,6 +287,9 @@ def _build_portfolio_snapshot(
 
 def serialize_transaction(tx: Transaction) -> dict:
     asset = tx.asset
+    executed_at = tx.executed_at
+    if executed_at and executed_at.tzinfo is None:
+        executed_at = executed_at.replace(tzinfo=timezone.utc)
     return {
         "id": tx.id,
         "symbol": asset.symbol if asset else "",
@@ -245,7 +298,7 @@ def serialize_transaction(tx: Transaction) -> dict:
         "quantity": float(tx.quantity),
         "price": float(tx.price),
         "total": float(tx.total),
-        "executed_at": tx.executed_at.isoformat() if tx.executed_at else None,
+        "executed_at": executed_at.isoformat() if executed_at else None,
         "status": tx.status,
         "kind": tx.kind,
         "source": tx.source,
@@ -295,6 +348,28 @@ class TransactionUpdateRequest(BaseModel):
 
 class TransactionVoidRequest(BaseModel):
     note: Optional[str] = None
+
+
+class RebalanceApplySuggestion(BaseModel):
+    symbol: constr(strip_whitespace=True, min_length=1)
+    action: Literal["comprar", "vender"]
+    quantity: confloat(gt=0)
+    price: confloat(gt=0)
+
+
+class RebalanceApplyOptions(BaseModel):
+    profile_override: Optional[str] = None
+    allow_sells: bool = True
+    prefer_etfs: bool = False
+    min_trade_value: confloat(ge=0) = 100.0
+    max_turnover: confloat(ge=0, le=1) = 0.25
+
+
+class RebalanceApplyRequest(BaseModel):
+    request_id: constr(strip_whitespace=True, min_length=6)
+    suggestions: List[RebalanceApplySuggestion]
+    options: RebalanceApplyOptions
+    execution_date: Optional[date] = None
 
 
 SERIES_RANGE_CHOICES = {"1M", "3M", "6M", "1A", "5A", "YTD", "ALL"}
@@ -350,6 +425,55 @@ def _derive_portfolio_earliest_date(
         candidates.append(portfolio.created_at.date())
 
     return min(candidates) if candidates else None
+
+
+class RealizedPnlTracker:
+    def __init__(self) -> None:
+        self.qty_state: Dict[int, float] = defaultdict(float)
+        self.avg_cost_state: Dict[int, float] = defaultdict(float)
+        self.realized_total = 0.0
+        self.realized_cost_basis = 0.0
+
+    def apply(self, tx: Transaction, *, count_realized: bool = True) -> None:
+        asset_id = tx.asset_id
+        if asset_id is None:
+            return
+
+        tx_type = (tx.type or "").lower()
+        if tx_type not in {"buy", "sell"}:
+            return
+
+        quantity = float(tx.quantity)
+        if quantity <= 0:
+            return
+
+        price = float(tx.price) if tx.price is not None else None
+        if price is None:
+            total = float(tx.total) if tx.total is not None else 0.0
+            price = total / quantity if quantity else 0.0
+        current_qty = self.qty_state.get(asset_id, 0.0)
+        avg_cost = self.avg_cost_state.get(asset_id, 0.0)
+
+        if tx_type == "buy":
+            total_cost = (avg_cost * current_qty) + (price * quantity)
+            new_qty = current_qty + quantity
+            self.qty_state[asset_id] = new_qty
+            self.avg_cost_state[asset_id] = total_cost / new_qty if new_qty > 0 else 0.0
+            return
+
+        sell_qty = min(quantity, current_qty) if current_qty > 0 else quantity
+        if sell_qty <= 0:
+            return
+
+        if count_realized:
+            pnl = (price - avg_cost) * sell_qty
+            self.realized_total += pnl
+            self.realized_cost_basis += avg_cost * sell_qty
+
+        new_qty = max(current_qty - sell_qty, 0.0)
+        self.qty_state[asset_id] = new_qty
+        if new_qty <= 0:
+            self.avg_cost_state[asset_id] = 0.0
 
 
 def _generate_portfolio_timeseries(
@@ -439,28 +563,42 @@ def _generate_portfolio_timeseries(
         if prev_row:
             previous_price_map[asset_id] = prev_row
 
-    qty_state: Dict[int, float] = {asset_id: 0.0 for asset_id in asset_ids}
+    pnl_tracker = RealizedPnlTracker()
+    qty_state: Dict[int, float] = pnl_tracker.qty_state
+    for asset_id in asset_ids:
+        qty_state.setdefault(asset_id, 0.0)
     price_state: Dict[int, Optional[float]] = {asset_id: None for asset_id in asset_ids}
     price_pointers: Dict[int, int] = {asset_id: 0 for asset_id in asset_ids}
     invested_cumulative = 0.0
+    realized_cumulative = 0.0
     fx_cache: Dict[str, tuple[float, Optional[datetime]]] = {}
 
-    # Transações anteriores ao período selecionado
-    tx_map: Dict[date, List[Tuple[int, float, float]]] = defaultdict(list)
+    # Transa????es anteriores ao per??odo selecionado
+    tx_map: Dict[date, List[Tuple[Transaction, float, bool]]] = defaultdict(list)
     for tx in transactions:
         if not tx.executed_at:
             continue
         tx_date = tx.executed_at.date()
-        sign = -1.0 if (tx.type or "").lower() == "sell" else 1.0
-        delta_qty = sign * float(tx.quantity)
+        tx_type = (tx.type or "").lower()
+        if tx_type not in {"buy", "sell"}:
+            continue
+        asset_id = tx.asset_id
+        if asset_id is None:
+            continue
+        quantity = float(tx.quantity)
+        if quantity <= 0:
+            continue
+        sign = -1.0 if tx_type == "sell" else 1.0
         tx_kind = (tx.kind or "trade").lower()
         raw_total = float(tx.total)
         delta_val = 0.0 if tx_kind == "adjust" else sign * raw_total
+        realized_flag = tx_kind == "trade"
         if tx_date < start_date:
-            qty_state[tx.asset_id] = qty_state.get(tx.asset_id, 0.0) + delta_qty
+            pnl_tracker.apply(tx, count_realized=realized_flag)
             invested_cumulative += delta_val
+            realized_cumulative = pnl_tracker.realized_total
         else:
-            tx_map[tx_date].append((tx.asset_id, delta_qty, delta_val))
+            tx_map[tx_date].append((tx, delta_val, realized_flag))
 
     for asset_id, prev_row in previous_price_map.items():
         if prev_row is None:
@@ -500,11 +638,15 @@ def _generate_portfolio_timeseries(
                 pointer += 1
             price_pointers[asset_id] = pointer
 
-        # Aplica transações do dia
+
+        # Aplica transa????es do dia
         if current_date in tx_map:
-            for asset_id, delta_qty, delta_val in tx_map[current_date]:
-                qty_state[asset_id] = qty_state.get(asset_id, 0.0) + delta_qty
+            for tx, delta_val, realized_flag in tx_map[current_date]:
                 invested_cumulative += delta_val
+                pnl_tracker.apply(tx, count_realized=realized_flag)
+            realized_cumulative = pnl_tracker.realized_total
+
+        market_value = 0.0
 
         market_value = 0.0
         for asset_id in asset_ids:
@@ -514,13 +656,17 @@ def _generate_portfolio_timeseries(
                 continue
             market_value += qty * price_brl
 
-        pnl_value = market_value - invested_cumulative
+        pnl_total = market_value - invested_cumulative
+        pnl_unrealized = pnl_total - realized_cumulative
         series.append(
             {
                 "date": current_date.isoformat(),
                 "market_value": round(market_value, 2),
                 "invested": round(invested_cumulative, 2),
-                "pnl": round(pnl_value, 2),
+                "pnl": round(pnl_total, 2),
+                "pnl_total": round(pnl_total, 2),
+                "pnl_realized": round(realized_cumulative, 2),
+                "pnl_unrealized": round(pnl_unrealized, 2),
             }
         )
 
@@ -569,12 +715,34 @@ def portfolio_summary(
             "itens": [],
         }
 
+    transactions = (
+        db.query(Transaction)
+        .filter(
+            Transaction.portfolio_id == portfolio.id,
+            Transaction.status == "active",
+        )
+        .order_by(Transaction.executed_at.asc(), Transaction.id.asc())
+        .all()
+    )
+
     itens, invested_total, market_total, previous_total, fx_meta, as_of = (
         _build_portfolio_snapshot(db, portfolio)
     )
 
-    pnl_abs = market_total - invested_total
-    pnl_pct = (pnl_abs / invested_total * 100.0) if invested_total > 0 else 0.0
+    pnl_tracker = RealizedPnlTracker()
+    for tx in transactions:
+        tx_kind = (tx.kind or "trade").lower()
+        count_realized = tx_kind == "trade"
+        pnl_tracker.apply(tx, count_realized=count_realized)
+
+    realized_abs = pnl_tracker.realized_total
+    realized_basis = pnl_tracker.realized_cost_basis
+    unrealized_abs = market_total - invested_total
+    unrealized_pct = (unrealized_abs / invested_total * 100.0) if invested_total > 0 else 0.0
+    total_pnl_abs = realized_abs + unrealized_abs
+    total_cost_basis = realized_basis + invested_total
+    pnl_pct = (total_pnl_abs / total_cost_basis * 100.0) if total_cost_basis > 0 else 0.0
+    realized_pct = (realized_abs / realized_basis * 100.0) if realized_basis > 0 else 0.0
     day_change_total = market_total - previous_total
     day_change_pct_total = (
         (day_change_total / previous_total * 100.0) if previous_total > 0 else 0.0
@@ -585,8 +753,12 @@ def portfolio_summary(
         "total": round(market_total, 2),
         "invested_total": round(invested_total, 2),
         "market_total": round(market_total, 2),
-        "pnl_abs": round(pnl_abs, 2),
+        "pnl_abs": round(total_pnl_abs, 2),
         "pnl_pct": round(pnl_pct, 2),
+        "pnl_unrealized_abs": round(unrealized_abs, 2),
+        "pnl_unrealized_pct": round(unrealized_pct, 2),
+        "pnl_realized_abs": round(realized_abs, 2),
+        "pnl_realized_pct": round(realized_pct, 2),
         "day_change_abs": round(day_change_total, 2),
         "day_change_pct": round(day_change_pct_total, 2),
         "as_of": as_of.isoformat() if as_of else None,
@@ -594,8 +766,12 @@ def portfolio_summary(
         "kpis": {
             "invested_total": round(invested_total, 2),
             "market_total": round(market_total, 2),
-            "pnl_abs": round(pnl_abs, 2),
+            "pnl_abs": round(total_pnl_abs, 2),
             "pnl_pct": round(pnl_pct, 2),
+            "pnl_unrealized_abs": round(unrealized_abs, 2),
+            "pnl_unrealized_pct": round(unrealized_pct, 2),
+            "pnl_realized_abs": round(realized_abs, 2),
+            "pnl_realized_pct": round(realized_pct, 2),
             "day_change_abs": round(day_change_total, 2),
             "day_change_pct": round(day_change_pct_total, 2),
             "dividends_ytd": round(dividends_ytd, 2),
@@ -965,27 +1141,9 @@ def portfolio_rebalance(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    rp = db.query(RiskProfile).filter(RiskProfile.user_id == user.id).first()
-    profile_source = "default"
-    if profile_override:
-        profile_key = profile_override.lower()
-        profile_source = "override"
-    elif rp:
-        profile_key = (rp.profile or "moderado").lower()
-        profile_source = "stored"
-    else:
-        profile_key = "moderado"
-
-    allocation = get_allocation_profile(profile_key)
-
-    rules_applied: List[str] = []
-    if rp and rp.rules:
-        try:
-            loaded_rules = json.loads(rp.rules)
-            if isinstance(loaded_rules, list):
-                rules_applied = [str(item) for item in loaded_rules]
-        except json.JSONDecodeError:
-            rules_applied = []
+    rp, allocation, profile_source, rules_applied = _resolve_profile_context(
+        db, user.id, profile_override
+    )
 
     portfolio = (
         db.query(Portfolio)
@@ -1081,6 +1239,13 @@ def portfolio_rebalance(
                 quantity=float(h.quantity),
                 price=converted_price,
                 value=value,
+                lot_size=float(asset.lot_size or 1.0),
+                qty_step=float(asset.qty_step or 1.0),
+                supports_fractional=bool(
+                    asset.supports_fractional
+                    if asset.supports_fractional is not None
+                    else True
+                ),
             )
         )
         total_value += value
@@ -1152,6 +1317,22 @@ def portfolio_rebalance(
     if not notes and not suggestions_payload:
         notes.append("Carteira já dentro das bandas definidas.")
 
+    candidates_payload: Dict[str, List[dict]] = {}
+    for cls in result.missing_buy_classes:
+        suggestions = CLASS_CANDIDATES.get(cls)
+        if not suggestions:
+            continue
+        class_label = CLASS_LABELS.get(cls, cls.title())
+        candidates_payload[cls] = [
+            {
+                "symbol": item["symbol"],
+                "description": item.get("description"),
+                "class": cls,
+                "class_label": class_label,
+            }
+            for item in suggestions
+        ]
+
     return {
         "profile": allocation.profile,
         "profile_source": profile_source,
@@ -1169,4 +1350,195 @@ def portfolio_rebalance(
         "notes": notes,
         "as_of": result.priced_at.isoformat(),
         "options": options_payload,
+        "candidates": candidates_payload,
+    }
+
+
+@router.post("/rebalance/apply")
+def portfolio_rebalance_apply(
+    body: RebalanceApplyRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if not body.suggestions:
+        raise HTTPException(status_code=422, detail="Nenhuma sugestão selecionada.")
+
+    portfolio = (
+        db.query(Portfolio)
+        .filter(Portfolio.user_id == user.id)
+        .order_by(Portfolio.id.asc())
+        .first()
+    )
+    if not portfolio:
+        raise HTTPException(
+            status_code=400, detail="Nenhum portfólio cadastrado para aplicar ajustes."
+        )
+
+    options = body.options
+    current_plan = portfolio_rebalance(
+        profile_override=options.profile_override,
+        allow_sells=options.allow_sells,
+        prefer_etfs=options.prefer_etfs,
+        min_trade_value=options.min_trade_value,
+        max_turnover=options.max_turnover,
+        db=db,
+        user=user,
+    )
+
+    plan_suggestions = current_plan.get("suggestions") or []
+    if not plan_suggestions:
+        raise HTTPException(
+            status_code=422, detail="Nenhuma sugestão disponível para aplicar."
+        )
+
+    plan_index: Dict[tuple[str, str], dict] = {}
+    for item in plan_suggestions:
+        key = (item["symbol"].upper(), item["action"])
+        plan_index[key] = item
+
+    to_apply: List[dict] = []
+    EPS = 1e-4
+    for suggestion in body.suggestions:
+        key = (suggestion.symbol.upper(), suggestion.action)
+        plan_item = plan_index.get(key)
+        if not plan_item:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Sugestão para {suggestion.symbol} não encontrada ou desatualizada.",
+            )
+        if abs(plan_item["quantity"] - float(suggestion.quantity)) > EPS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Quantidade divergente para {suggestion.symbol}. Recalcule o rebalanceamento.",
+            )
+        to_apply.append(plan_item)
+
+    request_marker = f"rebalance::{body.request_id.strip()}"
+    existing_tx = (
+        db.query(Transaction.id)
+        .filter(
+            Transaction.portfolio_id == portfolio.id,
+            Transaction.source == "rebalance",
+            Transaction.note == request_marker,
+        )
+        .first()
+    )
+    if existing_tx:
+        raise HTTPException(
+            status_code=409, detail="Já existe uma aplicação para este request_id."
+        )
+
+    rows = (
+        db.query(Holding)
+        .options(joinedload(Holding.asset))
+        .filter(Holding.portfolio_id == portfolio.id)
+        .all()
+    )
+    holdings_by_symbol = {row.asset.symbol.upper(): row for row in rows if row.asset}
+    assets_by_symbol = {row.asset.symbol.upper(): row.asset for row in rows if row.asset}
+
+    applied_records: List[dict] = []
+    base_date = body.execution_date or datetime.now(timezone.utc).date()
+    execution_dt = datetime.combine(base_date, datetime.min.time(), tzinfo=timezone.utc)
+    today_utc = base_date
+    now = execution_dt
+
+    for item in to_apply:
+        symbol = item["symbol"].upper()
+        action = item["action"]
+        qty = float(item["quantity"])
+        price = float(item.get("price_ref") or item.get("price") or 0.0)
+        if price <= 0:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Preço inválido para {symbol}. Recalcule o rebalanceamento.",
+            )
+
+        holding = holdings_by_symbol.get(symbol)
+        asset = assets_by_symbol.get(symbol)
+        if not asset and holding and holding.asset:
+            asset = holding.asset
+            assets_by_symbol[symbol] = asset
+
+        if not asset:
+            asset = db.query(Asset).filter(Asset.symbol == symbol).first()
+            if not asset:
+                raise HTTPException(
+                    status_code=404, detail=f"Ativo {symbol} não encontrado."
+                )
+            assets_by_symbol[symbol] = asset
+
+        if action == "comprar":
+            if not holding:
+                holding = Holding(
+                    portfolio_id=portfolio.id,
+                    asset_id=asset.id,
+                    quantity=0.0,
+                    avg_price=price,
+                    purchase_date=today_utc,
+                    created_at=now.replace(tzinfo=None),
+                    updated_at=now.replace(tzinfo=None),
+                )
+                db.add(holding)
+                holdings_by_symbol[symbol] = holding
+            prev_qty = float(holding.quantity)
+            new_qty = prev_qty + qty
+            total_cost = prev_qty * float(holding.avg_price) + qty * price
+            holding.quantity = new_qty
+            holding.avg_price = total_cost / new_qty if new_qty > 0 else price
+            holding.updated_at = now.replace(tzinfo=None)
+        else:
+            if not holding:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Sugestão de venda para {symbol} inválida: ativo não encontrado.",
+                )
+            prev_qty = float(holding.quantity)
+            if qty - prev_qty > EPS:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Quantidade disponível insuficiente para vender {symbol}.",
+                )
+            new_qty = prev_qty - qty
+            if new_qty <= EPS:
+                db.delete(holding)
+                holdings_by_symbol.pop(symbol, None)
+            else:
+                holding.quantity = new_qty
+                holding.updated_at = now.replace(tzinfo=None)
+
+        record_transaction(
+            db,
+            portfolio.id,
+            asset.id,
+            "buy" if action == "comprar" else "sell",
+            qty,
+            price,
+            executed_at=now,
+            kind="adjust",
+            source="rebalance",
+            note=request_marker,
+        )
+        applied_records.append(
+            {"symbol": symbol, "action": action, "quantity": qty, "price": price}
+        )
+
+    db.commit()
+
+    updated_plan = portfolio_rebalance(
+        profile_override=options.profile_override,
+        allow_sells=options.allow_sells,
+        prefer_etfs=options.prefer_etfs,
+        min_trade_value=options.min_trade_value,
+        max_turnover=options.max_turnover,
+        db=db,
+        user=user,
+    )
+
+    return {
+        "status": "applied",
+        "request_id": body.request_id,
+        "applied": len(applied_records),
+        "transactions": applied_records,
+        "result": updated_plan,
     }

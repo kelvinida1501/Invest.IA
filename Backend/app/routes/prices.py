@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from datetime import date as date_type
-from typing import Iterable
+from typing import Iterable, Dict, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, condecimal, validator
@@ -14,6 +14,7 @@ from app.db.models import Asset, AssetPrice
 from app.routes.auth import get_current_user, User  # type: ignore
 from app.services.fx import FxRateNotFoundError, get_fx_rate
 from app.services.quotes import QuoteNotFoundError, refresh_asset_quote
+from app.services.currency import normalize_currency_code
 
 router = APIRouter(prefix="/prices", tags=["prices"])
 
@@ -90,16 +91,38 @@ def _load_assets_by_symbol(db: Session, symbols: Iterable[str]) -> dict[str, Ass
     return {asset.symbol.upper(): asset for asset in records}
 
 
-def _serialize_quote(asset: Asset) -> dict:
+def _serialize_quote(
+    asset: Asset,
+    fx_cache: Dict[str, Tuple[float, datetime]] | None = None,
+) -> dict:
+    fx_cache = fx_cache or {}
+    price_original = (
+        float(asset.last_quote_price) if asset.last_quote_price is not None else None
+    )
+    currency = normalize_currency_code(asset.currency, asset.symbol)
+
+    converted_price = price_original
+    retrieved_at = asset.last_quote_at.isoformat() if asset.last_quote_at else None
+
+    if price_original is not None and currency != "BRL":
+        cache_key = f"{currency}:BRL"
+        if cache_key in fx_cache:
+            rate, fx_ts = fx_cache[cache_key]
+        else:
+            try:
+                rate, fx_ts = get_fx_rate(currency, "BRL")
+            except FxRateNotFoundError:  # pragma: no cover
+                rate, fx_ts = 1.0, None
+            fx_cache[cache_key] = (rate, fx_ts)
+        converted_price = price_original * rate
+        if fx_ts and not retrieved_at:
+            retrieved_at = fx_ts.isoformat()
+
     return {
-        "price": (
-            float(asset.last_quote_price)
-            if asset.last_quote_price is not None
-            else None
-        ),
-        "retrieved_at": (
-            asset.last_quote_at.isoformat() if asset.last_quote_at else None
-        ),
+        "price": converted_price,
+        "price_original": price_original,
+        "currency": currency,
+        "retrieved_at": retrieved_at,
     }
 
 
@@ -131,12 +154,16 @@ def refresh_quotes(
             ) from exc
         refreshed_any = refreshed_any or refreshed
 
+    fx_cache: Dict[str, Tuple[float, datetime]] = {}
+
     if refreshed_any:
         db.commit()
     else:
         db.flush()
 
-    quotes = {symbol: _serialize_quote(asset) for symbol, asset in symbol_map.items()}
+    quotes = {
+        symbol: _serialize_quote(asset, fx_cache) for symbol, asset in symbol_map.items()
+    }
     return {"quotes": quotes}
 
 
@@ -164,11 +191,15 @@ def refresh_all_quotes(
             ) from exc
         refreshed_any = refreshed_any or refreshed
 
+    fx_cache: Dict[str, Tuple[float, datetime]] = {}
+
     if refreshed_any:
         db.commit()
 
     return {
-        "quotes": {symbol: _serialize_quote(asset) for symbol, asset in assets.items()}
+        "quotes": {
+            symbol: _serialize_quote(asset, fx_cache) for symbol, asset in assets.items()
+        }
     }
 
 
@@ -217,4 +248,12 @@ def price_history(symbol: str, db: Session = Depends(get_db)):
         .limit(60)
         .all()
     )
-    return [{"date": str(row.date), "close": float(row.close)} for row in rows]
+    return [
+        {
+            "date": str(row.date),
+            "close": float(row.close),
+            "source": "yfinance",
+            "price_type": "close",
+        }
+        for row in rows
+    ]

@@ -32,6 +32,10 @@ export type PortfolioKpis = {
   market_total: number;
   pnl_abs: number;
   pnl_pct: number;
+  pnl_unrealized_abs: number;
+  pnl_unrealized_pct: number;
+  pnl_realized_abs: number;
+  pnl_realized_pct: number;
   day_change_abs: number;
   day_change_pct: number;
   dividends_ytd: number;
@@ -43,6 +47,10 @@ export type PortfolioSummary = {
   market_total: number;
   pnl_abs: number;
   pnl_pct: number;
+  pnl_unrealized_abs: number;
+  pnl_unrealized_pct: number;
+  pnl_realized_abs: number;
+  pnl_realized_pct: number;
   day_change_abs: number;
   day_change_pct: number;
   as_of: string | null;
@@ -90,6 +98,9 @@ export type PortfolioTimeseriesPoint = {
   market_value: number;
   invested: number;
   pnl: number;
+  pnl_total: number;
+  pnl_realized: number;
+  pnl_unrealized: number;
 };
 
 export type PortfolioTimeseries = {

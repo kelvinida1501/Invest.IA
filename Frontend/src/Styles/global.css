@@ -1470,11 +1470,6 @@ button.ghost:hover,
   color: #ffe4a6;
 }
 
-.news-card-score {
-  font-weight: 700;
-  font-size: 12px;
-}
-
 .news-card-footer {
   display: flex;
   align-items: center;

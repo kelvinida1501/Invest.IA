@@ -1,12 +1,20 @@
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, condecimal, confloat
 
 from app.db.base import get_db
-from app.db.models import Holding, Asset, Portfolio, Transaction
+from app.db.models import Holding, Asset
 from app.routes.auth import get_current_user, User  # type: ignore
 from app.services.quotes import QuoteNotFoundError, refresh_asset_quote
+from app.services.portfolio_utils import (
+    get_or_create_default_portfolio,
+    record_transaction,
+)
+
+
+def _today_utc() -> date:
+    return datetime.now(timezone.utc).date()
 
 router = APIRouter(prefix="/holdings", tags=["holdings"])
 
@@ -51,58 +59,6 @@ def row_to_json(h: Holding):
     }
 
 
-def get_or_create_default_portfolio(db: Session, user_id: int) -> Portfolio:
-    portfolio = (
-        db.query(Portfolio)
-        .filter(Portfolio.user_id == user_id)
-        .order_by(Portfolio.id.asc())
-        .first()
-    )
-    if portfolio:
-        return portfolio
-    portfolio = Portfolio(user_id=user_id, name="Principal")
-    db.add(portfolio)
-    db.commit()
-    db.refresh(portfolio)
-    return portfolio
-
-
-def record_transaction(
-    db: Session,
-    portfolio_id: int,
-    asset_id: int,
-    tx_type: str,
-    quantity: float,
-    price: float,
-    executed_at: datetime | None = None,
-    *,
-    kind: str = "trade",
-    source: str = "auto",
-    note: str | None = None,
-    status: str = "active",
-) -> None:
-    qty = abs(float(quantity))
-    if qty <= 0:
-        return
-    price = float(price)
-    when = executed_at or datetime.utcnow()
-    db.add(
-        Transaction(
-            portfolio_id=portfolio_id,
-            asset_id=asset_id,
-            type=tx_type,
-            quantity=qty,
-            price=price,
-            total=price * qty,
-            executed_at=when,
-            kind=kind,
-            source=source,
-            note=note,
-            status=status,
-        )
-    )
-
-
 @router.post("", status_code=201)
 def create_holding(
     body: HoldingCreate,
@@ -120,8 +76,8 @@ def create_holding(
     except QuoteNotFoundError:
         pass
 
-    purchase_dt = body.purchase_date or date.today()
-    if purchase_dt > date.today():
+    purchase_dt = body.purchase_date or _today_utc()
+    if purchase_dt > _today_utc():
         raise HTTPException(
             status_code=422, detail="Data de compra nao pode ser futura"
         )
@@ -198,7 +154,7 @@ def update_holding(
     holding.avg_price = new_avg
     holding.updated_at = datetime.utcnow()
     if body.purchase_date:
-        if body.purchase_date > date.today():
+        if body.purchase_date > _today_utc():
             raise HTTPException(
                 status_code=422, detail="Data de compra nao pode ser futura"
             )
@@ -225,7 +181,7 @@ def update_holding(
 
     delta_qty = new_qty - before_qty
     if abs(delta_qty) > 1e-9:
-        base_date = body.purchase_date or holding.purchase_date or date.today()
+        base_date = body.purchase_date or holding.purchase_date or _today_utc()
         exec_dt = datetime.combine(base_date, datetime.min.time())
         record_transaction(
             db,
@@ -247,7 +203,7 @@ def sell_holding(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if body.sale_date > date.today():
+    if body.sale_date > _today_utc():
         raise HTTPException(status_code=422, detail="Data de venda nao pode ser futura")
 
     qty = float(body.quantity)
