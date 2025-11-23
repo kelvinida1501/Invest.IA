@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../Api/ApiClient';
 import type { PortfolioHolding as Holding } from '../types/portfolio';
 
@@ -20,6 +20,8 @@ type QuoteState = {
   price: number | null;
   retrieved_at: string | null;
   loading: boolean;
+  currency?: string | null;
+  price_original?: number | null;
 };
 
 const QUOTE_TTL_MS = 5 * 60 * 1000;
@@ -45,7 +47,36 @@ const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   currency: 'BRL',
 });
 
-const isoToday = () => new Date().toISOString().slice(0, 10);
+function formatQuantityValue(value: number) {
+  const abs = Math.abs(value);
+  let maxFractionDigits = 2;
+  if (abs < 1 && abs >= 0.01) {
+    maxFractionDigits = 4;
+  } else if (abs < 0.01) {
+    maxFractionDigits = 8;
+  }
+  return value.toLocaleString('pt-BR', {
+    minimumFractionDigits: Math.min(2, maxFractionDigits),
+    maximumFractionDigits: maxFractionDigits,
+  });
+}
+
+function isoTodayLocal() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isFutureDate(dateStr: string) {
+  if (!dateStr) return false;
+  const input = new Date(dateStr);
+  const today = new Date();
+  input.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  return input.getTime() > today.getTime();
+}
 
 function toNumber(raw: string) {
   const normalized = raw.replace(/\./g, '').replace(',', '.');
@@ -88,7 +119,7 @@ export default function HoldingsList({
   onRefresh,
   onRegisterSearchTrigger,
 }: Props) {
-  const todayStr = useMemo(isoToday, []);
+  const todayStr = useMemo(isoTodayLocal, []);
 
   const [symbol, setSymbol] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -116,7 +147,9 @@ export default function HoldingsList({
   const [sellLoading, setSellLoading] = useState(false);
 
   const [historyTarget, setHistoryTarget] = useState<Holding | null>(null);
-  const [historyData, setHistoryData] = useState<Array<{ date: string; close: number }>>([]);
+  const [historyData, setHistoryData] = useState<
+    Array<{ date: string; close: number; source?: string; price_type?: string }>
+  >([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -148,14 +181,26 @@ export default function HoldingsList({
       const key = normalizeSymbol(holding.symbol);
       const override = quoteMap[key];
       const price =
-        override?.price ?? (typeof holding.last_price === 'number' ? holding.last_price : null);
+        override?.price ??
+        (typeof holding.last_price === 'number' ? holding.last_price : null);
       const retrievedAt = override?.retrieved_at ?? holding.last_price_at ?? null;
       const loading = override?.loading ?? false;
+      const currencyOverride = override?.currency ?? holding.currency;
+      const originalOverride =
+        override?.price_original ?? holding.last_price_original ?? null;
       const timestamp = retrievedAt ? Date.parse(retrievedAt) : Number.NaN;
       const ageMs = Number.isFinite(timestamp) ? Date.now() - timestamp : Number.POSITIVE_INFINITY;
       const isFresh = Number.isFinite(timestamp) && ageMs <= QUOTE_TTL_MS;
       const ageMinutes = Number.isFinite(timestamp) ? ageMs / 60000 : null;
-      return { price, retrievedAt, loading, isFresh, ageMinutes };
+      return {
+        price,
+        retrievedAt,
+        loading,
+        isFresh,
+        ageMinutes,
+        currency: currencyOverride,
+        price_original: originalOverride,
+      };
     },
     [quoteMap]
   );
@@ -165,7 +210,8 @@ export default function HoldingsList({
     setQuoteMap((prev) => {
       const next = { ...prev };
       upper.forEach((sym) => {
-        const current = next[sym] ?? { price: null, retrieved_at: null, loading: false };
+        const current =
+          next[sym] ?? { price: null, retrieved_at: null, loading: false, currency: null, price_original: null };
         next[sym] = { ...current, loading };
       });
       return next;
@@ -195,16 +241,28 @@ export default function HoldingsList({
           Object.entries(quotes).forEach(([sym, payload]) => {
             const key = normalizeSymbol(sym);
             const value = typeof payload === 'object' && payload ? payload : {};
+            const raw: any = value;
             next[key] = {
-              price: typeof (value as any).price === 'number' ? Number((value as any).price) : null,
-              retrieved_at: (value as any).retrieved_at ?? null,
+              price: typeof raw.price === 'number' ? Number(raw.price) : null,
+              retrieved_at: raw.retrieved_at ?? null,
               loading: false,
+              currency: typeof raw.currency === 'string' ? raw.currency : prev[key]?.currency ?? null,
+              price_original:
+                typeof raw.price_original === 'number'
+                  ? Number(raw.price_original)
+                  : prev[key]?.price_original ?? null,
             };
           });
           symbols.forEach((sym) => {
             const key = normalizeSymbol(sym);
             if (!next[key]) {
-              next[key] = { price: null, retrieved_at: null, loading: false };
+              next[key] = {
+                price: null,
+                retrieved_at: null,
+                loading: false,
+                currency: prev[key]?.currency ?? null,
+                price_original: prev[key]?.price_original ?? null,
+              };
             } else {
               next[key] = { ...next[key], loading: false };
             }
@@ -247,13 +305,14 @@ export default function HoldingsList({
     }
 
     const qty = toNumber(quantity);
-    const avg = toNumber(avgPrice);
-    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(avg) || avg <= 0) {
-      setError('Quantidade e preço devem ser números > 0.');
+    const totalInvested = toNumber(avgPrice);
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(totalInvested) || totalInvested <= 0) {
+      setError('Quantidade e preço total devem ser números > 0.');
       return;
     }
+    const unitPrice = totalInvested / qty;
 
-    if (purchaseDate > todayStr) {
+    if (isFutureDate(purchaseDate)) {
       setError('A data de compra não pode ser futura.');
       return;
     }
@@ -287,7 +346,7 @@ export default function HoldingsList({
       await api.post('/holdings', {
         asset_id: assetId,
         quantity: qty,
-        avg_price: avg,
+        avg_price: unitPrice,
         purchase_date: purchaseDate,
       });
 
@@ -311,19 +370,21 @@ export default function HoldingsList({
   const startEdit = (h: Holding) => {
     setEditing(h.holding_id);
     setEditQty(String(h.quantity));
-    setEditPrice(h.avg_price.toFixed(2).replace('.', ','));
+    const totalInvested = h.avg_price * h.quantity;
+    setEditPrice(totalInvested.toFixed(2).replace('.', ','));
     setError(null);
   };
 
   const saveEdit = async (id: number) => {
     const qty = toNumber(editQty);
-    const avg = toNumber(editPrice);
-    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(avg) || avg <= 0) {
-      setError('Quantidade e Preço devem ser números > 0.');
+    const total = toNumber(editPrice);
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(total) || total <= 0) {
+      setError('Quantidade e preço total devem ser números > 0.');
       return;
     }
     try {
-      await api.put(`/holdings/${id}`, { quantity: qty, avg_price: avg });
+      const unit = total / qty;
+      await api.put(`/holdings/${id}`, { quantity: qty, avg_price: unit });
       setEditing(null);
       onRefresh();
     } catch (err) {
@@ -359,7 +420,7 @@ export default function HoldingsList({
       setSellError('Quantidade maior que a posição disponível.');
       return;
     }
-    if (!sellDate || sellDate > todayStr) {
+    if (!sellDate || isFutureDate(sellDate)) {
       setSellError('A data de venda não pode ser futura.');
       return;
     }
@@ -473,10 +534,11 @@ export default function HoldingsList({
         />
         <input
           className="input"
-          placeholder="Preço De Compra"
+          placeholder="Valor total investido"
           inputMode="decimal"
           value={avgPrice}
           onChange={(e) => setAvgPrice(e.target.value)}
+          title="Informe o valor total pago pela quantidade informada"
         />
         <input
           className="input"
@@ -512,9 +574,9 @@ export default function HoldingsList({
             <tr>
               <th>Ativo</th>
               <th>Qtd</th>
-              <th>Preço De Compra</th>
+              <th>Valor investido</th>
               <th>Ult. Preço</th>
-              <th>Valor</th>
+              <th>Valor de mercado</th>
               <th>%</th>
               <th>Compra</th>
               <th>Acoes</th>
@@ -532,25 +594,25 @@ export default function HoldingsList({
               const info = getQuoteInfo(h);
               const effectivePrice =
                 info.price ?? (typeof h.last_price === 'number' ? h.last_price : null);
+              const invested = h.avg_price * h.quantity;
               const valorCalculado =
                 effectivePrice != null ? effectivePrice * h.quantity : h.valor;
               const chipClass = `quote-chip ${info.isFresh ? 'fresh' : 'stale'}`;
               const chipLabel = `Atualizado ha ${formatAgeLabel(info.ageMinutes)}`;
               let priceDisplay: React.ReactNode = '-';
+              const displayCurrency = info.currency ?? h.currency;
+              const displayOriginal =
+                typeof info.price_original === 'number' ? info.price_original : h.last_price_original;
               if (info.loading) {
                 priceDisplay = 'Atualizando...';
               } else if (effectivePrice != null) {
                 const brl = currencyFormatter.format(effectivePrice);
-                if (
-                  h.currency &&
-                  h.currency !== 'BRL' &&
-                  typeof h.last_price_original === 'number'
-                ) {
+                if (displayCurrency && displayCurrency !== 'BRL' && typeof displayOriginal === 'number') {
                   const origFmt = new Intl.NumberFormat('pt-BR', {
                     style: 'currency',
-                    currency: h.currency as Intl.NumberFormatOptions['currency'],
+                    currency: displayCurrency as Intl.NumberFormatOptions['currency'],
                   });
-                  priceDisplay = `${origFmt.format(h.last_price_original)} -> ${brl}`;
+                  priceDisplay = `${origFmt.format(displayOriginal)} -> ${brl}`;
                 } else {
                   priceDisplay = brl;
                 }
@@ -592,7 +654,7 @@ export default function HoldingsList({
                         onChange={(e) => setEditQty(e.target.value)}
                       />
                     ) : (
-                      h.quantity.toLocaleString('pt-BR')
+                      formatQuantityValue(h.quantity)
                     )}
                   </td>
                   <td>
@@ -602,12 +664,10 @@ export default function HoldingsList({
                         inputMode="decimal"
                         value={editPrice}
                         onChange={(e) => setEditPrice(e.target.value)}
+                        title="Valor total investido neste lote"
                       />
                     ) : (
-                      h.avg_price.toLocaleString('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL',
-                      })
+                      currencyFormatter.format(invested)
                     )}
                   </td>
                   <td title={QUOTE_TOOLTIP}>
@@ -785,6 +845,12 @@ export default function HoldingsList({
               {historyError && <p className="error">{historyError}</p>}
               {!historyLoading && !historyError && (
                 <div className="history-list">
+                  {historyData.length > 0 && (
+                    <p className="muted" style={{ marginBottom: 8 }}>
+                      Valores de {historyData[0].price_type ?? 'fechamento'} fornecidos por{' '}
+                      {historyData[0].source ?? 'Yahoo Finance'}.
+                    </p>
+                  )}
                   {historyData.length === 0 && (
                     <p className="muted">Sem registros armazenados.</p>
                   )}
@@ -803,6 +869,3 @@ export default function HoldingsList({
     </div>
   );
 }
-
-
-

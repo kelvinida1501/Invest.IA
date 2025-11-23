@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Text,
     UniqueConstraint,
+    Boolean,
 )
 from sqlalchemy.orm import relationship
 from .base import Base
@@ -45,6 +46,9 @@ class Asset(Base):
     currency = Column(String, default="BRL")
     last_quote_price = Column(Float, nullable=True)
     last_quote_at = Column(DateTime, nullable=True)
+    lot_size = Column(Float, nullable=False, default=1.0)
+    qty_step = Column(Float, nullable=False, default=1.0)
+    supports_fractional = Column(Boolean, nullable=False, default=True)
 
     prices = relationship(
         "AssetPrice", back_populates="asset", cascade="all, delete-orphan"

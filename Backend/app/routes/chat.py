@@ -57,6 +57,11 @@ class ChatHistoryResponse(BaseModel):
     messages: List[ChatMessagePayload]
 
 
+class ChatStatusResponse(BaseModel):
+    ready: bool
+    reason: Optional[str] = None
+
+
 def _serialize_observation(obs: ToolObservation) -> ObservationPayload:
     return ObservationPayload(
         name=obs.name, description=obs.description, content=obs.content, data=obs.data
@@ -187,3 +192,14 @@ def get_history(
         for row in rows
     ]
     return ChatHistoryResponse(session_id=session.id, messages=payload)
+
+
+@router.get("/status", response_model=ChatStatusResponse)
+def get_chat_status():
+    if not _settings.chat.enabled:
+        return ChatStatusResponse(ready=False, reason="chat_disabled")
+    if getattr(_agent, "_llm", None) is None:
+        return ChatStatusResponse(ready=False, reason="llm_unavailable")
+    if getattr(_agent, "_prompt", None) is None:
+        return ChatStatusResponse(ready=False, reason="prompt_unavailable")
+    return ChatStatusResponse(ready=True)

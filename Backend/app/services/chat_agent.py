@@ -6,19 +6,15 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
+import httpx
 from sqlalchemy.orm import Session, joinedload
 
 try:  # LangChain is optional at import time (e.g., during unit tests before deps install)
-    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-    from langchain_core.output_parsers import StrOutputParser
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, BaseMessage
     from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-    from langchain_openai import ChatOpenAI
-    from langchain_core.language_models import BaseChatModel
 except Exception:  # pragma: no cover - defensive fallback when package missing
-    AIMessage = HumanMessage = SystemMessage = object  # type: ignore
+    AIMessage = HumanMessage = SystemMessage = BaseMessage = object  # type: ignore
     ChatPromptTemplate = MessagesPlaceholder = object  # type: ignore
-    StrOutputParser = object  # type: ignore
-    ChatOpenAI = BaseChatModel = None  # type: ignore
 
 from app.db.models import (
     ChatMessage as ChatMessageModel,
@@ -29,6 +25,8 @@ from app.db.models import (
 )
 from app.services import news
 from app.services.allocations import CLASS_LABELS, normalize_asset_class
+from app.services.currency import normalize_currency_code
+from app.services.fx import get_fx_rate, FxRateNotFoundError
 from app.settings import get_settings
 
 
@@ -115,13 +113,27 @@ def _build_portfolio_observation(db: Session, user: User) -> ToolObservation:
         asset = holding.asset
         if not asset:
             continue
-        price = (
+        raw_price = (
             float(asset.last_quote_price)
             if asset.last_quote_price is not None
             else float(holding.avg_price)
         )
-        invested = float(holding.quantity) * float(holding.avg_price)
-        current_value = float(holding.quantity) * price
+
+        # Converte para BRL quando necessario
+        currency = normalize_currency_code(getattr(asset, "currency", None), asset.symbol)
+        conv_price = float(raw_price)
+        conv_avg = float(holding.avg_price)
+        if currency != "BRL":
+            try:
+                rate, _ts = get_fx_rate(currency, "BRL")
+                conv_price = float(raw_price) * float(rate)
+                conv_avg = float(holding.avg_price) * float(rate)
+            except Exception:
+                # Se FX falhar, cai no preco original sem conversao (melhor que travar)
+                pass
+
+        invested = float(holding.quantity) * conv_avg
+        current_value = float(holding.quantity) * conv_price
         pnl_abs = current_value - invested
         pnl_pct = (pnl_abs / invested * 100.0) if invested > 0 else 0.0
 
@@ -144,8 +156,8 @@ def _build_portfolio_observation(db: Session, user: User) -> ToolObservation:
                 "name": asset.name,
                 "class": class_key,
                 "quantity": float(holding.quantity),
-                "avg_price": float(holding.avg_price),
-                "last_price": price,
+                "avg_price": conv_avg,
+                "last_price": conv_price,
                 "current_value": current_value,
                 "pnl_abs": pnl_abs,
                 "pnl_pct": pnl_pct,
@@ -358,31 +370,46 @@ def _convert_history_to_messages(history: Sequence[Any]) -> List[Any]:
 
 
 class ChatAgent:
-    def __init__(self, llm: Optional[BaseChatModel] = None) -> None:
+    def __init__(self) -> None:
         self._settings = get_settings()
+        self._http_client: Optional[httpx.Client] = None
         try:
-            self._llm = llm or self._create_default_llm()
+            self._http_client = self._create_http_client()
         except Exception as exc:
-            # Fail-safe: keep server up and use fallback if LLM init fails
-            logger.exception("Failed to initialize LLM: %s", exc)
-            self._llm = None
+            # Fail-safe: keep server up e cair no fallback se o HTTP client nao subir
+            logger.exception("Failed to initialize HTTP client for LLM: %s", exc)
+            self._http_client = None
         self._prompt = None if ChatPromptTemplate is object else self._build_prompt()
 
-    def _create_default_llm(self) -> Optional[BaseChatModel]:
-        if ChatOpenAI is None:
-            return None
+    def _create_http_client(self) -> Optional[httpx.Client]:
         llm_settings = self._settings.llm
         if llm_settings.provider != "openai":
+            logger.warning(
+                "LLM provider configurado como '%s'; somente 'openai' suportado.",
+                llm_settings.provider,
+            )
             return None
         if not llm_settings.api_key:
+            logger.warning(
+                "OPENAI_API_KEY nao informado; chat operara apenas com resumo local."
+            )
             return None
-        return ChatOpenAI(
-            model=llm_settings.model,
-            temperature=llm_settings.temperature,
-            max_tokens=llm_settings.max_output_tokens,
+
+        base_url = (llm_settings.api_base or "https://api.openai.com/v1").rstrip("/")
+        headers = {
+            "Authorization": f"Bearer {llm_settings.api_key}",
+            "Content-Type": "application/json",
+        }
+        logger.info(
+            "Inicializando cliente HTTP para OpenAI com base '%s' e modelo '%s'",
+            base_url,
+            llm_settings.model,
+        )
+        return httpx.Client(
+            base_url=base_url,
+            headers=headers,
             timeout=llm_settings.request_timeout,
-            api_key=llm_settings.api_key,
-            base_url=llm_settings.api_base,
+            trust_env=False,
         )
 
     def _build_prompt(self) -> Optional[Any]:
@@ -435,22 +462,20 @@ class ChatAgent:
         context = self._compose_context(observations)
 
         if (
-            not self._llm
+            not self._http_client
             or not self._prompt
             or AIMessage is object
-            or StrOutputParser is object
         ):
             reply = self._fallback_reply(message, observations)
             return ChatAgentResponse(
                 reply=reply, observations=observations, used_fallback=True
             )
 
-        chain = self._prompt | self._llm | StrOutputParser()
         try:
-            response_text = chain.invoke(
-                {"context": context, "history": history_messages, "input": message}
+            prompt_value = self._prompt.format_prompt(
+                context=context, history=history_messages, input=message
             )
-            reply_text = response_text.strip()
+            reply_text = self._invoke_openai(prompt_value)
         except Exception as exc:  # pragma: no cover - fallback se modelo falhar
             reply_text = self._fallback_reply(message, observations)
             return ChatAgentResponse(
@@ -465,6 +490,48 @@ class ChatAgent:
             observations=observations,
             used_fallback=False,
         )
+
+    def _invoke_openai(self, prompt_value: Any) -> str:
+        if not self._http_client:
+            raise RuntimeError("HTTP client for OpenAI not configured")
+
+        messages = getattr(prompt_value, "to_messages", lambda: [])()
+        payload: List[Dict[str, str]] = []
+        for msg in messages:
+            role = None
+            content = getattr(msg, "content", "")
+            if isinstance(msg, HumanMessage):
+                role = "user"
+            elif isinstance(msg, AIMessage):
+                role = "assistant"
+            elif isinstance(msg, SystemMessage):
+                role = "system"
+            elif BaseMessage is not object and isinstance(msg, BaseMessage):
+                role = getattr(msg, "type", "user")
+            if role and content:
+                payload.append({"role": role, "content": content})
+
+        if not payload:
+            raise ValueError("Prompt vazio para o modelo.")
+
+        llm_settings = self._settings.llm
+        response = self._http_client.post(
+            "/chat/completions",
+            json={
+                "model": llm_settings.model,
+                "messages": payload,
+                "temperature": llm_settings.temperature,
+                "max_tokens": llm_settings.max_output_tokens,
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+        choices = data.get("choices") or []
+        if not choices:
+            raise ValueError("Modelo nao retornou escolhas.")
+        message = choices[0].get("message") or {}
+        content = message.get("content") or ""
+        return content.strip()
 
     def _fallback_reply(
         self, message: str, observations: Sequence[ToolObservation]

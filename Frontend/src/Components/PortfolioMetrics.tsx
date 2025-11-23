@@ -16,7 +16,8 @@ function formatCurrency(value: number, currency: string) {
   });
 }
 
-function formatPercent(value: number) {
+function formatPercent(value?: number | null) {
+  if (value == null || Number.isNaN(value)) return '-';
   return `${value.toFixed(2)}%`;
 }
 
@@ -46,11 +47,25 @@ export default function PortfolioMetrics({ summary, loading, onRefresh }: Props)
         value: formatCurrency(kpis.market_total, baseCurrency),
       },
       {
-        key: 'pnl',
-        label: 'P/L',
+        key: 'pnl_total',
+        label: 'P/L total',
         value: formatCurrency(kpis.pnl_abs, baseCurrency),
         extra: formatPercent(kpis.pnl_pct),
         trend: kpis.pnl_abs,
+      },
+      {
+        key: 'pnl_unrealized',
+        label: 'P/L não realizado',
+        value: formatCurrency(kpis.pnl_unrealized_abs, baseCurrency),
+        extra: formatPercent(kpis.pnl_unrealized_pct),
+        trend: kpis.pnl_unrealized_abs,
+      },
+      {
+        key: 'pnl_realized',
+        label: 'P/L realizado',
+        value: formatCurrency(kpis.pnl_realized_abs, baseCurrency),
+        extra: formatPercent(kpis.pnl_realized_pct),
+        trend: kpis.pnl_realized_abs,
       },
       {
         key: 'day_change',

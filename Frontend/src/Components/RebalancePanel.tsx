@@ -30,6 +30,13 @@ type Suggestion = {
   rationale: string;
 };
 
+type CandidateSuggestion = {
+  symbol: string;
+  description?: string;
+  class: string;
+  class_label?: string;
+};
+
 type RebalanceResponse = {
   profile: RiskLevel;
   profile_source: 'default' | 'stored' | 'override' | string;
@@ -46,6 +53,7 @@ type RebalanceResponse = {
   rules_applied: string[];
   notes: string[];
   as_of?: string;
+  candidates?: Record<string, CandidateSuggestion[]>;
   options: {
     allow_sells: boolean;
     prefer_etfs: boolean;
@@ -81,6 +89,33 @@ function formatCurrency(value: number | undefined) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function formatDateTime(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+}
+
+function generateRequestId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `rebalance-${Date.now()}`;
+}
+
+function isoTodayLocal() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function RebalancePanel() {
   const [data, setData] = useState<RebalanceResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -91,10 +126,15 @@ export default function RebalancePanel() {
   const [preferEtfs, setPreferEtfs] = useState(false);
   const [minTradeValue, setMinTradeValue] = useState(100);
   const [maxTurnoverPercent, setMaxTurnoverPercent] = useState(25);
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applyMessage, setApplyMessage] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
     setError(null);
+     setApplyError(null);
+     setApplyMessage(null);
     try {
       const params = new URLSearchParams();
       if (profileOverride) {
@@ -135,6 +175,7 @@ export default function RebalancePanel() {
   }, [data]);
 
   const profileLabel = data?.profile ? PROFILE_LABEL[data.profile] ?? data.profile : null;
+  const asOfLabel = useMemo(() => formatDateTime(data?.as_of), [data?.as_of]);
 
   const netCashFlowLabel = useMemo(() => {
     if (!data) return null;
@@ -146,6 +187,45 @@ export default function RebalancePanel() {
     }
     return `Caixa liberado: ${formatCurrency(Math.abs(data.net_cash_flow))}`;
   }, [data]);
+
+  const handleApply = async () => {
+    if (!data || data.suggestions.length === 0 || applying) {
+      return;
+    }
+    setApplying(true);
+    setApplyError(null);
+    setApplyMessage(null);
+    const requestId = generateRequestId();
+    const payload = {
+      request_id: requestId,
+      suggestions: data.suggestions.map((suggestion) => ({
+        symbol: suggestion.symbol,
+        action: suggestion.action,
+        quantity: Math.abs(suggestion.quantity),
+        price: suggestion.price_ref,
+      })),
+      options: {
+        profile_override: profileOverride || null,
+        allow_sells: allowSells,
+        prefer_etfs: preferEtfs,
+        min_trade_value: minTradeValue,
+        max_turnover: maxTurnoverPercent / 100,
+      },
+      execution_date: isoTodayLocal(),
+    };
+
+    try {
+      await api.post('/portfolio/rebalance/apply', payload);
+      setApplyMessage('Plano aplicado com sucesso.');
+      await load();
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.detail || err?.message || 'Falha ao aplicar plano.';
+      setApplyError(message);
+    } finally {
+      setApplying(false);
+    }
+  };
 
   return (
     <div className="rebalance-panel">
@@ -168,6 +248,11 @@ export default function RebalancePanel() {
           {typeof data?.score === 'number' && (
             <div className="muted" style={{ fontSize: 12 }}>
               Score atual: {data.score} pts
+            </div>
+          )}
+          {asOfLabel && (
+            <div className="muted" style={{ fontSize: 12 }}>
+              Dados atualizados em {asOfLabel}
             </div>
           )}
         </div>
@@ -351,9 +436,45 @@ export default function RebalancePanel() {
           </section>
 
           <section style={{ marginTop: 16 }}>
-            <div className="muted" style={{ marginBottom: 6 }}>
-              Sugestões de ordens
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 6,
+                flexWrap: 'wrap',
+                gap: 8,
+              }}
+            >
+              <div className="muted">Sugestões de ordens</div>
+              <button
+                className="btn btn-success"
+                onClick={handleApply}
+                disabled={
+                  applying || !data.suggestions || data.suggestions.length === 0
+                }
+              >
+                {applying ? 'Aplicando...' : 'Aplicar plano'}
+              </button>
             </div>
+            {applyError && (
+              <div className="error-block" style={{ marginBottom: 8 }}>
+                {applyError}
+              </div>
+            )}
+            {applyMessage && (
+              <div
+                style={{
+                  marginBottom: 8,
+                  padding: 8,
+                  borderRadius: 8,
+                  background: '#123d1f',
+                  color: '#8cf29d',
+                }}
+              >
+                {applyMessage}
+              </div>
+            )}
             <div style={{ overflowX: 'auto' }}>
               <table className="table">
                 <thead>
@@ -404,6 +525,48 @@ export default function RebalancePanel() {
               </table>
             </div>
           </section>
+
+          {data.candidates && Object.keys(data.candidates).length > 0 && (
+            <section style={{ marginTop: 16 }}>
+              <h3 style={{ marginBottom: 6 }}>Ativos sugeridos para analisar</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {Object.entries(data.candidates).map(([cls, items]) => (
+                  <div
+                    key={cls}
+                    style={{
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: 12,
+                      padding: 12,
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, marginBottom: 8 }}>
+                      {items[0]?.class_label ?? CLASS_LABELS[cls] ?? cls.toUpperCase()}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {items.map((item) => (
+                        <span
+                          key={`${cls}-${item.symbol}`}
+                          style={{
+                            borderRadius: 999,
+                            padding: '6px 12px',
+                            background: '#1f2b33',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                          }}
+                        >
+                          <strong>{item.symbol}</strong>
+                          {item.description && (
+                            <span className="muted" style={{ marginLeft: 6 }}>
+                              {item.description}
+                            </span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {data.notes.length > 0 && (
             <section style={{ marginTop: 16 }}>
