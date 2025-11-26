@@ -79,7 +79,7 @@ jobs:
       - name: Build frontend
         working-directory: Frontend
         env:
-          VITE_API_URL: https://api-investia.padelhub.com.br
+          VITE_API_URL: https://api-investia.padelhub.com.br/api
         run: npm run build
 
       - name: Configure AWS credentials
