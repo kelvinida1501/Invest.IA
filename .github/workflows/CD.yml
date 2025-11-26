@@ -1,0 +1,99 @@
+name: CD
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: sa-east-1
+  ECR_REPOSITORY: 423506097029.dkr.ecr.sa-east-1.amazonaws.com/investia-backend
+  ECS_CLUSTER: investia-cluster
+  ECS_SERVICE: investia-api-service
+  FRONTEND_BUCKET: investia-frontend-423506097029
+  CLOUDFRONT_DISTRIBUTION_ID: E12MQTDA76U2OQ
+
+jobs:
+  backend:
+    name: Deploy backend (ECR/ECS)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION | \
+            docker login --username AWS --password-stdin ${ECR_REPOSITORY%/*}
+
+      - name: Build backend image
+        run: |
+          docker build -t $ECR_REPOSITORY:latest Backend
+          docker tag $ECR_REPOSITORY:latest $ECR_REPOSITORY:${GITHUB_SHA}
+
+      - name: Push backend image
+        run: |
+          docker push $ECR_REPOSITORY:latest
+          docker push $ECR_REPOSITORY:${GITHUB_SHA}
+
+      - name: Force new ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE \
+            --force-new-deployment \
+            --region $AWS_REGION
+
+  frontend:
+    name: Deploy frontend (S3/CloudFront)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: Frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: Frontend
+        env:
+          VITE_API_URL: https://api-investia.padelhub.com.br
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync to S3
+        run: aws s3 sync Frontend/dist s3://$FRONTEND_BUCKET --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id $CLOUDFRONT_DISTRIBUTION_ID \
+            --paths "/*"

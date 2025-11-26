@@ -45,15 +45,9 @@ def test_needs_refresh_ttl(monkeypatch):
     asset.last_quote_at = fixed_now
 
     monkeypatch.setattr(
-        quotes,
-        "datetime",
-        type("dt", (), {"utcnow": staticmethod(lambda: fixed_now + timedelta(minutes=4))}),
+        quotes, "_now_utc", lambda: fixed_now + timedelta(minutes=4)
     )
     assert quotes.needs_refresh(asset) is False
 
-    monkeypatch.setattr(
-        quotes,
-        "datetime",
-        type("dt", (), {"utcnow": staticmethod(lambda: fixed_now + timedelta(minutes=6))}),
-    )
+    monkeypatch.setattr(quotes, "_now_utc", lambda: fixed_now + timedelta(minutes=6))
     assert quotes.needs_refresh(asset) is True

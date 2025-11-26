@@ -17,13 +17,9 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column(
-        "holdings",
-        sa.Column("purchase_date", sa.Date(), nullable=True),
-    )
-    op.execute("UPDATE holdings SET purchase_date = DATE(created_at)")
-    op.alter_column("holdings", "purchase_date", nullable=True)
+    # Já incluído na revisão inicial (20250918_01_core). Evita erro de coluna duplicada.
+    pass
 
 
 def downgrade():
-    op.drop_column("holdings", "purchase_date")
+    pass

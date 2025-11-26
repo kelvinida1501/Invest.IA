@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -49,7 +49,7 @@ def _fake_result(symbol="PLAN1", action="comprar", quantity=1.0, price=10.0):
         turnover=0.1,
         net_cash_flow=0.0,
         notes=[],
-        priced_at=datetime.utcnow(),
+        priced_at=datetime.now(timezone.utc),
         missing_buy_classes=[],
     )
 
@@ -177,7 +177,7 @@ def test_rebalance_apply_conflict_on_request_id(client, user_token, db_session, 
         total=10.0,
         note="rebalance::dup-001",
         source="rebalance",
-        executed_at=datetime.utcnow(),
+        executed_at=datetime.now(timezone.utc),
     )
     db_session.add(tx)
     db_session.commit()

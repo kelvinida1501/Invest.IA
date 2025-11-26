@@ -84,7 +84,8 @@ def needs_refresh(asset: Asset, force: bool = False) -> bool:
         return True
     if asset.last_quote_at is None:
         return True
-    return datetime.utcnow() - asset.last_quote_at > QUOTE_TTL
+    now_naive = _now_utc()
+    return now_naive - asset.last_quote_at > QUOTE_TTL
 
 
 def refresh_asset_quote(db: Session, asset: Asset, *, force: bool = False) -> bool:

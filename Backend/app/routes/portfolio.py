@@ -30,7 +30,7 @@ from app.services.rebalance import (
     rebalance_portfolio,
 )
 from app.services.portfolio_utils import record_transaction
-from pydantic import BaseModel, validator, confloat, constr
+from pydantic import BaseModel, field_validator, confloat, constr
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -315,19 +315,19 @@ class TransactionUpdateRequest(BaseModel):
     kind: Optional[str] = None
     note: Optional[str] = None
 
-    @validator("quantity")
+    @field_validator("quantity")
     def validate_quantity(cls, value: Optional[float]) -> Optional[float]:
         if value is not None and value <= 0:
             raise ValueError("quantity must be greater than zero")
         return value
 
-    @validator("price")
+    @field_validator("price")
     def validate_price(cls, value: Optional[float]) -> Optional[float]:
         if value is not None and value < 0:
             raise ValueError("price must be zero or positive")
         return value
 
-    @validator("type")
+    @field_validator("type")
     def validate_type(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return value
@@ -336,7 +336,7 @@ class TransactionUpdateRequest(BaseModel):
             raise ValueError("type must be 'buy' or 'sell'")
         return norm
 
-    @validator("kind")
+    @field_validator("kind")
     def validate_kind(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return value
@@ -833,7 +833,7 @@ def portfolio_timeseries(
 
 @router.get("/allocation")
 def portfolio_allocation(
-    mode: str = Query("class", regex="^(class|asset)$"),
+    mode: str = Query("class", pattern="^(class|asset)$"),
     class_filter: Optional[str] = Query(None, alias="class"),
     group_small: float = Query(0.02, ge=0.0, le=0.2),
     db: Session = Depends(get_db),
@@ -952,8 +952,8 @@ def portfolio_transactions(
     end: Optional[date] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    order: str = Query("desc", regex="^(asc|desc)$"),
-    status: str = Query("active", regex="^(active|voided|all)$"),
+    order: str = Query("desc", pattern="^(asc|desc)$"),
+    status: str = Query("active", pattern="^(active|voided|all)$"),
     kind: str = Query("all"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),

@@ -33,6 +33,6 @@ def test_needs_refresh_respects_ttl(monkeypatch):
     now = datetime(2024, 1, 1, 12, 0)
     asset.last_quote_at = now
 
-    monkeypatch.setattr(quotes, "datetime", type("dt", (), {"utcnow": lambda: now}))
+    monkeypatch.setattr(quotes, "_now_utc", lambda: now)
     assert quotes.needs_refresh(asset, force=False) is False
     assert quotes.needs_refresh(asset, force=True) is True

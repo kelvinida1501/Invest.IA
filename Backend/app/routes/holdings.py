@@ -67,7 +67,7 @@ def create_holding(
 ):
     portfolio = get_or_create_default_portfolio(db, user.id)
 
-    asset = db.query(Asset).get(body.asset_id)
+    asset = db.get(Asset, body.asset_id)
     if not asset:
         raise HTTPException(status_code=404, detail="Asset nao encontrado")
 
@@ -106,8 +106,8 @@ def create_holding(
         quantity=float(body.quantity),
         avg_price=float(body.avg_price),
         purchase_date=purchase_dt,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     db.add(holding)
     record_transaction(
@@ -152,7 +152,7 @@ def update_holding(
 
     holding.quantity = new_qty
     holding.avg_price = new_avg
-    holding.updated_at = datetime.utcnow()
+    holding.updated_at = datetime.now(timezone.utc)
     if body.purchase_date:
         if body.purchase_date > _today_utc():
             raise HTTPException(
@@ -240,7 +240,7 @@ def sell_holding(
         db.delete(holding)
     else:
         holding.quantity = new_qty
-        holding.updated_at = datetime.utcnow()
+        holding.updated_at = datetime.now(timezone.utc)
     db.commit()
     return {"remaining": max(new_qty, 0.0)}
 

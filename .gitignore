@@ -13,6 +13,17 @@ Backend/.coverage
 # Frontend testes
 Frontend/coverage/
 
+# Infra exports 
+.aws/
+task-def.json
+cf-dist.json
+cf-dist-new.json
+cf-dist-updated.json
+bucket-policy.json
+alias.json
+changes.json
+oac.json
+sg-rule.json
 
 # Alembic
 alembic/versions/*.pyc

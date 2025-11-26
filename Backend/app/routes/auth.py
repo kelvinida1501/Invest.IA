@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.hash import bcrypt
 from pydantic import BaseModel
@@ -29,7 +29,7 @@ class RegisterRequest(BaseModel):
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (
+    expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire})
@@ -67,7 +67,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         name=body.name.strip(),
         email=email,
         password_hash=bcrypt.hash(body.password),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db.add(u)
     db.commit()

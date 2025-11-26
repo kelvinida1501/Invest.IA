@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from urllib.parse import quote_plus
@@ -34,8 +34,7 @@ class AssetCreate(BaseModel):
     qty_step: float | None = Field(default=None, gt=0)
     supports_fractional: bool | None = None
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 def asset_to_json(a: Asset):

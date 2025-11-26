@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.db.models import Asset, Portfolio, Transaction
 from app.services.portfolio_utils import get_or_create_default_portfolio
@@ -17,7 +17,7 @@ def test_portfolio_transactions_list(client, user_token, db_session):
         quantity=1,
         price=10,
         total=10,
-        executed_at=datetime.utcnow(),
+        executed_at=datetime.now(timezone.utc),
         status="active",
     )
     db_session.add(txn)

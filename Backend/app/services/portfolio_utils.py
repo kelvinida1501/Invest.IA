@@ -40,7 +40,7 @@ def record_transaction(
         return
 
     price = float(price)
-    when = executed_at or datetime.utcnow()
+    when = executed_at or datetime.now(timezone.utc)
     if when.tzinfo is not None:
         when = when.astimezone(timezone.utc).replace(tzinfo=None)
     db.add(

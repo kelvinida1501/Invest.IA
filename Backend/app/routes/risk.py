@@ -1,9 +1,9 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, conint, validator
+from pydantic import BaseModel, conint, field_validator
 from sqlalchemy.orm import Session
 
 from app.db.base import get_db
@@ -26,7 +26,7 @@ class RiskAssessmentRequest(BaseModel):
     answers: Dict[str, conint(ge=1, le=5)]
     restrictions: Optional[List[str]] = []
 
-    @validator("answers")
+    @field_validator("answers")
     def validate_answers(cls, value: Dict[str, int]) -> Dict[str, int]:
         expected = set(get_question_ids())
         provided = set(value.keys())
@@ -42,7 +42,7 @@ class RiskAssessmentRequest(BaseModel):
                 raise ValueError(f"Resposta fora da escala (1-5) para '{key}'.")
         return coerced
 
-    @validator("restrictions", pre=True, always=True)
+    @field_validator("restrictions", mode="before")
     def default_restrictions(cls, value):
         if not value:
             return []
@@ -130,7 +130,7 @@ def set_profile(
     }
 
     rp = db.query(RiskProfile).filter(RiskProfile.user_id == user.id).first()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     if not rp:
         rp = RiskProfile(
