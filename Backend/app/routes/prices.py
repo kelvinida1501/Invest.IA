@@ -5,7 +5,7 @@ from datetime import date as date_type
 from typing import Iterable, Dict, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, condecimal, validator
+from pydantic import BaseModel, condecimal, field_validator
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
@@ -52,7 +52,7 @@ class PriceUpsert(BaseModel):
     date: str  # "YYYY-MM-DD"
     close: condecimal(gt=0)
 
-    @validator("symbol")
+    @field_validator("symbol")
     def normalize_symbol(cls, value: str) -> str:
         return value.strip().upper()
 
@@ -79,8 +79,10 @@ class QuoteRefreshRequest(BaseModel):
     symbols: list[str]
     force: bool = False
 
-    @validator("symbols", pre=True, each_item=True)
-    def _normalize(cls, value: str) -> str:
+    @field_validator("symbols", mode="before")
+    def _normalize(cls, value):
+        if isinstance(value, list):
+            return [str(v).strip().upper() for v in value]
         return value.strip().upper()
 
 

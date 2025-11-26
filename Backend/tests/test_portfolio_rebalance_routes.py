@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from app.routes import portfolio as portfolio_route
@@ -40,7 +40,7 @@ def _stub_rebalance_result():
         turnover=0.1,
         net_cash_flow=0.0,
         notes=[],
-        priced_at=datetime.utcnow(),
+        priced_at=datetime.now(timezone.utc),
         missing_buy_classes=[],
     )
 
@@ -133,7 +133,7 @@ def test_portfolio_rebalance_apply_happy_path(client, user_token, monkeypatch):
             "turnover": 0.1,
             "net_cash_flow": 0.0,
             "notes": [],
-            "priced_at": datetime.utcnow(),
+            "priced_at": datetime.now(timezone.utc),
             "missing_buy_classes": [],
             "options": {
                 "allow_sells": True,

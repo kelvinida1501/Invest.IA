@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.routes import portfolio as portfolio_route
 
@@ -87,7 +87,7 @@ def test_portfolio_rebalance_apply_conflict_request_id(client, user_token, monke
             "turnover": 0.1,
             "net_cash_flow": 0.0,
             "notes": [],
-            "priced_at": datetime.utcnow(),
+                "priced_at": datetime.now(timezone.utc),
             "missing_buy_classes": [],
             "options": {},
         },

@@ -1,6 +1,7 @@
 import pytest
 import sys
 import types
+import warnings
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -27,6 +28,14 @@ from app.main import app
 from app.db.base import Base, get_db
 from app.db.models import User
 from app.routes.auth import create_access_token
+
+# Ignora deprecacao interna do jose sobre datetime.utcnow (nao controlamos a lib)
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    module=r"jose\.jwt",
+    message=".*datetime.datetime.utcnow.*",
+)
 
 
 # Usa SQLite em memória para isolar os testes

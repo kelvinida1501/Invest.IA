@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -70,7 +70,7 @@ def _serialize_observation(obs: ToolObservation) -> ObservationPayload:
 
 def _load_session(db: Session, user: User, session_id: Optional[int]) -> ChatSession:
     if session_id is None:
-        session = ChatSession(user_id=user.id, started_at=datetime.utcnow())
+        session = ChatSession(user_id=user.id, started_at=datetime.now(timezone.utc))
         db.add(session)
         db.commit()
         db.refresh(session)
@@ -104,7 +104,10 @@ def _persist_message(
     db: Session, session_id: int, role: str, content: str
 ) -> ChatMessage:
     msg = ChatMessage(
-        session_id=session_id, role=role, content=content, created_at=datetime.utcnow()
+        session_id=session_id,
+        role=role,
+        content=content,
+        created_at=datetime.now(timezone.utc),
     )
     db.add(msg)
     return msg

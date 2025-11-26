@@ -9,6 +9,7 @@ type Props = {
 };
 
 function formatCurrency(value: number, currency: string) {
+  if (value == null || Number.isNaN(value)) return '-';
   return value.toLocaleString('pt-BR', {
     style: 'currency',
     currency,

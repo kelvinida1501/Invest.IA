@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column,
     Integer,
@@ -21,7 +21,7 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     portfolios = relationship(
         "Portfolio", back_populates="user", cascade="all, delete-orphan"
@@ -60,7 +60,7 @@ class Portfolio(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     name = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="portfolios")
     holdings = relationship(
@@ -88,8 +88,8 @@ class Holding(Base):
     quantity = Column(Float, nullable=False)
     avg_price = Column(Float, nullable=False)
     purchase_date = Column(Date, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     portfolio = relationship("Portfolio", back_populates="holdings")
     asset = relationship("Asset")
@@ -108,7 +108,9 @@ class Transaction(Base):
     quantity = Column(Float, nullable=False)
     price = Column(Float, nullable=False)
     total = Column(Float, nullable=False)
-    executed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    executed_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
     status = Column(String, nullable=False, default="active")
     kind = Column(String, nullable=False, default="trade")  # trade|adjust|manual
     source = Column(String, nullable=True)  # auto|manual|import
@@ -146,7 +148,9 @@ class NewsItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     url = Column(String, nullable=False, unique=True)
-    published_at = Column(DateTime, default=datetime.utcnow, index=True)
+    published_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), index=True
+    )
     sentiment = Column(String, nullable=True)
 
 
@@ -156,7 +160,9 @@ class RiskProfile(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True)
     profile = Column(String, nullable=False)  # conservador|moderado|arrojado
     score = Column(Integer, nullable=False)
-    last_updated = Column(DateTime, default=datetime.utcnow)
+    last_updated = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc)
+    )
     answers = Column(Text, nullable=True)
     questionnaire_version = Column(String, nullable=True)
     score_version = Column(String, nullable=True)
@@ -171,7 +177,7 @@ class ChatSession(Base):
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    started_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="chat_sessions")
     messages = relationship(
@@ -187,6 +193,6 @@ class ChatMessage(Base):
     )
     role = Column(String, nullable=False)  # user|assistant|system
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     session = relationship("ChatSession", back_populates="messages")

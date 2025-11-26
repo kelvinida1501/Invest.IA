@@ -17,13 +17,9 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column("assets", sa.Column("last_quote_price", sa.Float(), nullable=True))
-    op.add_column(
-        "assets",
-        sa.Column("last_quote_at", sa.DateTime(timezone=False), nullable=True),
-    )
+    # Já incluído na revisão inicial (20250918_01_core). Evita erro de coluna duplicada.
+    pass
 
 
 def downgrade():
-    op.drop_column("assets", "last_quote_at")
-    op.drop_column("assets", "last_quote_price")
+    pass
