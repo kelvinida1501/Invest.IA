@@ -20,7 +20,11 @@ def test_news_with_explicit_symbols_calls_service(client, user_token, monkeypatc
 
     def fake_fetch(symbols, **kwargs):
         called["args"] = symbols
-        return {"symbols": symbols, "items": [{"url": "u", "headline": "h"}], "meta": {}}
+        return {
+            "symbols": symbols,
+            "items": [{"url": "u", "headline": "h"}],
+            "meta": {},
+        }
 
     monkeypatch.setattr(news_route, "fetch_news_for_symbols", fake_fetch)
     resp = client.get("/api/news/raw", headers=headers, params={"symbols": "ABCD,EFGH"})

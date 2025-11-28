@@ -160,9 +160,7 @@ class RiskProfile(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True)
     profile = Column(String, nullable=False)  # conservador|moderado|arrojado
     score = Column(Integer, nullable=False)
-    last_updated = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc)
-    )
+    last_updated = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     answers = Column(Text, nullable=True)
     questionnaire_version = Column(String, nullable=True)
     score_version = Column(String, nullable=True)

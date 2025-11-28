@@ -1,7 +1,5 @@
 from datetime import datetime, timedelta
 
-import pytest
-
 from app.services import quotes
 from app.db.models import Asset
 
@@ -32,7 +30,9 @@ class DummyTicker:
 
 
 def test_fetch_latest_quote_uses_history(monkeypatch):
-    monkeypatch.setattr(quotes, "yf", type("yf", (), {"Ticker": lambda symbol: DummyTicker()}))
+    monkeypatch.setattr(
+        quotes, "yf", type("yf", (), {"Ticker": lambda symbol: DummyTicker()})
+    )
     price, ts, currency = quotes.fetch_latest_quote("DUMMY")
     assert price == 7.0
     assert currency == "USD"
@@ -44,9 +44,7 @@ def test_needs_refresh_ttl(monkeypatch):
     fixed_now = datetime(2024, 1, 1, 12, 0)
     asset.last_quote_at = fixed_now
 
-    monkeypatch.setattr(
-        quotes, "_now_utc", lambda: fixed_now + timedelta(minutes=4)
-    )
+    monkeypatch.setattr(quotes, "_now_utc", lambda: fixed_now + timedelta(minutes=4))
     assert quotes.needs_refresh(asset) is False
 
     monkeypatch.setattr(quotes, "_now_utc", lambda: fixed_now + timedelta(minutes=6))

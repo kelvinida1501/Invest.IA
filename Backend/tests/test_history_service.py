@@ -11,9 +11,15 @@ class DummyHistory:
 
     def iterrows(self):
         for d, close in self._rows:
-            yield type("Idx", (), {"to_pydatetime": lambda self, dt=d: type("D", (), {"date": lambda self: dt})()})(), {
-                "Close": close
-            }
+            yield type(
+                "Idx",
+                (),
+                {
+                    "to_pydatetime": lambda self, dt=d: type(
+                        "D", (), {"date": lambda self: dt}
+                    )()
+                },
+            )(), {"Close": close}
 
 
 class DummyTicker:
@@ -55,5 +61,7 @@ def test_ensure_history_for_assets_calls_each_asset(db_session, monkeypatch):
         called["count"] += 1
 
     monkeypatch.setattr(history, "ensure_price_history", fake_ensure)
-    history.ensure_history_for_assets(db_session, [a1, a2], date(2024, 1, 1), date(2024, 1, 2))
+    history.ensure_history_for_assets(
+        db_session, [a1, a2], date(2024, 1, 1), date(2024, 1, 2)
+    )
     assert called["count"] == 2

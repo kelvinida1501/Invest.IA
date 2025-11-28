@@ -7,7 +7,14 @@ def test_create_holding_duplicate_date_conflict(client, user_token):
     client.post(
         "/api/import/holdings",
         headers=headers,
-        json=[{"symbol": "DUP1", "quantity": 1, "avg_price": 10, "purchase_date": str(date.today())}],
+        json=[
+            {
+                "symbol": "DUP1",
+                "quantity": 1,
+                "avg_price": 10,
+                "purchase_date": str(date.today()),
+            }
+        ],
     )
     summary = client.get("/api/portfolio/summary", headers=headers).json()
     base_holding = summary["itens"][0]
@@ -17,7 +24,12 @@ def test_create_holding_duplicate_date_conflict(client, user_token):
     resp2 = client.post(
         "/api/holdings",
         headers=headers,
-        json={"asset_id": asset_id, "quantity": 1, "avg_price": 10, "purchase_date": str(date.today())},
+        json={
+            "asset_id": asset_id,
+            "quantity": 1,
+            "avg_price": 10,
+            "purchase_date": str(date.today()),
+        },
     )
     if resp2.status_code != 201:
         assert resp2.status_code in (404, 409)

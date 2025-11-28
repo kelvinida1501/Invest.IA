@@ -1,6 +1,4 @@
-from datetime import datetime, timezone
-
-import pytest
+from datetime import datetime
 
 from app.services import fx
 
@@ -14,7 +12,9 @@ class DummyTicker:
 
 
 def test_get_fx_rate_uses_fast_info(monkeypatch):
-    monkeypatch.setattr(fx, "yf", type("yf", (), {"Ticker": lambda symbol: DummyTicker(5.0)}))
+    monkeypatch.setattr(
+        fx, "yf", type("yf", (), {"Ticker": lambda symbol: DummyTicker(5.0)})
+    )
     rate, ts = fx.get_fx_rate("USD", "BRL")
     assert rate == 5.0
     assert isinstance(ts, datetime)

@@ -9,7 +9,11 @@ def test_generate_reply_fallback_without_llm(db_session, monkeypatch):
     db_session.add(user)
     db_session.commit()
 
-    monkeypatch.setattr(chat_agent, "get_settings", lambda: SimpleNamespace(chat=SimpleNamespace(history_window=0)))
+    monkeypatch.setattr(
+        chat_agent,
+        "get_settings",
+        lambda: SimpleNamespace(chat=SimpleNamespace(history_window=0)),
+    )
     # remove LLM to force fallback
     agent = chat_agent.ChatAgent()
     agent._llm = None  # type: ignore

@@ -83,13 +83,6 @@ function formatPercent(value: number | undefined, digits = 1) {
   return `${(value * 100).toFixed(digits)}%`;
 }
 
-function formatCurrency(value: number | undefined) {
-  if (value === undefined || Number.isNaN(value)) {
-    return '--';
-  }
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
 export default function RiskPanel() {
   const [questionnaire, setQuestionnaire] = useState<QuestionnairePayload | null>(null);
   const [profile, setProfile] = useState<RiskProfileResponse | null>(null);

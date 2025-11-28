@@ -4,7 +4,9 @@ from datetime import date, timedelta
 def test_create_holding_future_date_rejected(client, user_token):
     headers, _ = user_token
     # create asset first
-    client.post("/api/assets", headers=headers, json={"symbol": "FUT1", "name": "Fut Asset"})
+    client.post(
+        "/api/assets", headers=headers, json={"symbol": "FUT1", "name": "Fut Asset"}
+    )
     future = (date.today() + timedelta(days=1)).isoformat()
 
     resp = client.post(

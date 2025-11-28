@@ -32,7 +32,9 @@ def _load_env_from_files() -> None:
 
     _ENV_LOADED = True
 
-    disable_proxies = (os.getenv("LLM_DISABLE_PROXIES", "true") or "true").strip().lower()
+    disable_proxies = (
+        (os.getenv("LLM_DISABLE_PROXIES", "true") or "true").strip().lower()
+    )
     if disable_proxies not in {"0", "false", "no"}:
         removed: list[str] = []
         for key in (
@@ -48,7 +50,10 @@ def _load_env_from_files() -> None:
                 removed.append(key)
         if removed:
             logger.info(
-                "LLM_DISABLE_PROXIES ativo; removendo variaveis de proxy para evitar conflitos com o cliente OpenAI: %s",
+                (
+                    "LLM_DISABLE_PROXIES ativo; removendo variaveis de proxy "
+                    "para evitar conflitos com o cliente OpenAI: %s"
+                ),
                 ", ".join(removed),
             )
 

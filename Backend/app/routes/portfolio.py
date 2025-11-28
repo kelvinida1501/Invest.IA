@@ -638,7 +638,6 @@ def _generate_portfolio_timeseries(
                 pointer += 1
             price_pointers[asset_id] = pointer
 
-
         # Aplica transa????es do dia
         if current_date in tx_map:
             for tx, delta_val, realized_flag in tx_map[current_date]:
@@ -738,11 +737,17 @@ def portfolio_summary(
     realized_abs = pnl_tracker.realized_total
     realized_basis = pnl_tracker.realized_cost_basis
     unrealized_abs = market_total - invested_total
-    unrealized_pct = (unrealized_abs / invested_total * 100.0) if invested_total > 0 else 0.0
+    unrealized_pct = (
+        (unrealized_abs / invested_total * 100.0) if invested_total > 0 else 0.0
+    )
     total_pnl_abs = realized_abs + unrealized_abs
     total_cost_basis = realized_basis + invested_total
-    pnl_pct = (total_pnl_abs / total_cost_basis * 100.0) if total_cost_basis > 0 else 0.0
-    realized_pct = (realized_abs / realized_basis * 100.0) if realized_basis > 0 else 0.0
+    pnl_pct = (
+        (total_pnl_abs / total_cost_basis * 100.0) if total_cost_basis > 0 else 0.0
+    )
+    realized_pct = (
+        (realized_abs / realized_basis * 100.0) if realized_basis > 0 else 0.0
+    )
     day_change_total = market_total - previous_total
     day_change_pct_total = (
         (day_change_total / previous_total * 100.0) if previous_total > 0 else 0.0
@@ -1435,7 +1440,9 @@ def portfolio_rebalance_apply(
         .all()
     )
     holdings_by_symbol = {row.asset.symbol.upper(): row for row in rows if row.asset}
-    assets_by_symbol = {row.asset.symbol.upper(): row.asset for row in rows if row.asset}
+    assets_by_symbol = {
+        row.asset.symbol.upper(): row.asset for row in rows if row.asset
+    }
 
     applied_records: List[dict] = []
     base_date = body.execution_date or datetime.now(timezone.utc).date()

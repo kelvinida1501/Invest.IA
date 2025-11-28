@@ -4,7 +4,9 @@ from datetime import datetime, timezone
 from app.routes import portfolio as portfolio_route
 
 
-def test_portfolio_rebalance_returns_empty_when_no_portfolio(client, user_token, monkeypatch):
+def test_portfolio_rebalance_returns_empty_when_no_portfolio(
+    client, user_token, monkeypatch
+):
     headers, _ = user_token
     fake_allocation = SimpleNamespace(
         profile="moderado",
@@ -22,7 +24,9 @@ def test_portfolio_rebalance_returns_empty_when_no_portfolio(client, user_token,
     assert resp.json()["suggestions"] == []
 
 
-def test_portfolio_rebalance_no_holdings_returns_message(client, user_token, monkeypatch):
+def test_portfolio_rebalance_no_holdings_returns_message(
+    client, user_token, monkeypatch
+):
     headers, _ = user_token
     portfolio_route.rebalance_portfolio_cache = {}
     fake_allocation = SimpleNamespace(
@@ -44,7 +48,9 @@ def test_portfolio_rebalance_no_holdings_returns_message(client, user_token, mon
     assert body["within_bands"] is True or body["suggestions"] == []
 
 
-def test_portfolio_rebalance_apply_conflict_request_id(client, user_token, monkeypatch, db_session):
+def test_portfolio_rebalance_apply_conflict_request_id(
+    client, user_token, monkeypatch, db_session
+):
     headers, _ = user_token
     # cria holding
     client.post(
@@ -87,16 +93,20 @@ def test_portfolio_rebalance_apply_conflict_request_id(client, user_token, monke
             "turnover": 0.1,
             "net_cash_flow": 0.0,
             "notes": [],
-                "priced_at": datetime.now(timezone.utc),
+            "priced_at": datetime.now(timezone.utc),
             "missing_buy_classes": [],
             "options": {},
         },
     )
-    monkeypatch.setattr(portfolio_route, "record_transaction", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        portfolio_route, "record_transaction", lambda *args, **kwargs: None
+    )
 
     body = {
         "request_id": "dup-1",
-        "suggestions": [{"symbol": "PLANZ", "action": "comprar", "quantity": 1, "price": 10}],
+        "suggestions": [
+            {"symbol": "PLANZ", "action": "comprar", "quantity": 1, "price": 10}
+        ],
         "options": {
             "profile_override": None,
             "allow_sells": True,

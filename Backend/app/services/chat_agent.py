@@ -10,7 +10,12 @@ import httpx
 from sqlalchemy.orm import Session, joinedload
 
 try:  # LangChain is optional at import time (e.g., during unit tests before deps install)
-    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, BaseMessage
+    from langchain_core.messages import (
+        AIMessage,
+        HumanMessage,
+        SystemMessage,
+        BaseMessage,
+    )
     from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 except Exception:  # pragma: no cover - defensive fallback when package missing
     AIMessage = HumanMessage = SystemMessage = BaseMessage = object  # type: ignore
@@ -26,7 +31,7 @@ from app.db.models import (
 from app.services import news
 from app.services.allocations import CLASS_LABELS, normalize_asset_class
 from app.services.currency import normalize_currency_code
-from app.services.fx import get_fx_rate, FxRateNotFoundError
+from app.services.fx import get_fx_rate
 from app.settings import get_settings
 
 
@@ -120,7 +125,9 @@ def _build_portfolio_observation(db: Session, user: User) -> ToolObservation:
         )
 
         # Converte para BRL quando necessario
-        currency = normalize_currency_code(getattr(asset, "currency", None), asset.symbol)
+        currency = normalize_currency_code(
+            getattr(asset, "currency", None), asset.symbol
+        )
         conv_price = float(raw_price)
         conv_avg = float(holding.avg_price)
         if currency != "BRL":
@@ -461,11 +468,7 @@ class ChatAgent:
         history_messages = _convert_history_to_messages(history or [])
         context = self._compose_context(observations)
 
-        if (
-            not self._http_client
-            or not self._prompt
-            or AIMessage is object
-        ):
+        if not self._http_client or not self._prompt or AIMessage is object:
             reply = self._fallback_reply(message, observations)
             return ChatAgentResponse(
                 reply=reply, observations=observations, used_fallback=True

@@ -1,8 +1,6 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-import pytest
-
 from app.routes import portfolio as portfolio_route
 from app.db.models import Transaction
 
@@ -72,7 +70,9 @@ def test_rebalance_apply_without_portfolio_returns_400(client, user_token, monke
     )
     body = {
         "request_id": "req-002",
-        "suggestions": [{"symbol": "PLAN1", "action": "comprar", "quantity": 1, "price": 10}],
+        "suggestions": [
+            {"symbol": "PLAN1", "action": "comprar", "quantity": 1, "price": 10}
+        ],
         "options": FAKE_OPTIONS,
     }
     resp = client.post("/api/portfolio/rebalance/apply", headers=headers, json=body)
@@ -87,18 +87,24 @@ def test_rebalance_apply_price_must_be_positive(client, user_token, monkeypatch)
         json=[{"symbol": "PLAN1", "quantity": 1, "avg_price": 10}],
     )
     monkeypatch.setattr(
-        portfolio_route, "rebalance_portfolio", lambda *args, **kwargs: _fake_result(price=0.0)
+        portfolio_route,
+        "rebalance_portfolio",
+        lambda *args, **kwargs: _fake_result(price=0.0),
     )
     body = {
         "request_id": "req-003",
-        "suggestions": [{"symbol": "PLAN1", "action": "comprar", "quantity": 1, "price": 0}],
+        "suggestions": [
+            {"symbol": "PLAN1", "action": "comprar", "quantity": 1, "price": 0}
+        ],
         "options": FAKE_OPTIONS,
     }
     resp = client.post("/api/portfolio/rebalance/apply", headers=headers, json=body)
     assert resp.status_code == 422
 
 
-def test_rebalance_apply_sell_requires_holding(client, user_token, db_session, monkeypatch):
+def test_rebalance_apply_sell_requires_holding(
+    client, user_token, db_session, monkeypatch
+):
     headers, _ = user_token
     # cria portfolio com ativo diferente para garantir portfolio existente
     client.post(
@@ -107,17 +113,23 @@ def test_rebalance_apply_sell_requires_holding(client, user_token, db_session, m
         json=[{"symbol": "OUTRO", "quantity": 1, "avg_price": 10}],
     )
     db_session.add(
-        portfolio_route.Asset(symbol="VENTA", name="Venda", currency="BRL", class_="acao")
+        portfolio_route.Asset(
+            symbol="VENTA", name="Venda", currency="BRL", class_="acao"
+        )
     )
     db_session.commit()
     monkeypatch.setattr(
         portfolio_route,
         "rebalance_portfolio",
-        lambda *args, **kwargs: _fake_result(symbol="VENTA", action="vender", quantity=1.0),
+        lambda *args, **kwargs: _fake_result(
+            symbol="VENTA", action="vender", quantity=1.0
+        ),
     )
     body = {
         "request_id": "req-004",
-        "suggestions": [{"symbol": "VENTA", "action": "vender", "quantity": 1, "price": 10}],
+        "suggestions": [
+            {"symbol": "VENTA", "action": "vender", "quantity": 1, "price": 10}
+        ],
         "options": FAKE_OPTIONS,
     }
     resp = client.post("/api/portfolio/rebalance/apply", headers=headers, json=body)
@@ -134,18 +146,24 @@ def test_rebalance_apply_quantity_divergence(client, user_token, monkeypatch):
     monkeypatch.setattr(
         portfolio_route,
         "rebalance_portfolio",
-        lambda *args, **kwargs: _fake_result(symbol="PLAN1", action="comprar", quantity=1.0),
+        lambda *args, **kwargs: _fake_result(
+            symbol="PLAN1", action="comprar", quantity=1.0
+        ),
     )
     body = {
         "request_id": "req-005",
-        "suggestions": [{"symbol": "PLAN1", "action": "comprar", "quantity": 2, "price": 10}],
+        "suggestions": [
+            {"symbol": "PLAN1", "action": "comprar", "quantity": 2, "price": 10}
+        ],
         "options": FAKE_OPTIONS,
     }
     resp = client.post("/api/portfolio/rebalance/apply", headers=headers, json=body)
     assert resp.status_code == 422
 
 
-def test_rebalance_apply_conflict_on_request_id(client, user_token, db_session, monkeypatch):
+def test_rebalance_apply_conflict_on_request_id(
+    client, user_token, db_session, monkeypatch
+):
     headers, user = user_token
     client.post(
         "/api/import/holdings",
@@ -155,7 +173,9 @@ def test_rebalance_apply_conflict_on_request_id(client, user_token, db_session, 
     monkeypatch.setattr(
         portfolio_route,
         "rebalance_portfolio",
-        lambda *args, **kwargs: _fake_result(symbol="PLAN1", action="comprar", quantity=1.0),
+        lambda *args, **kwargs: _fake_result(
+            symbol="PLAN1", action="comprar", quantity=1.0
+        ),
     )
     # cria transacao existente com mesmo request_id
     portfolio_id = (
@@ -164,9 +184,7 @@ def test_rebalance_apply_conflict_on_request_id(client, user_token, db_session, 
         .first()[0]
     )
     asset_id = (
-        db_session.query(portfolio_route.Asset.id)
-        .filter_by(symbol="PLAN1")
-        .scalar()
+        db_session.query(portfolio_route.Asset.id).filter_by(symbol="PLAN1").scalar()
     )
     tx = Transaction(
         portfolio_id=portfolio_id,
@@ -184,7 +202,9 @@ def test_rebalance_apply_conflict_on_request_id(client, user_token, db_session, 
 
     body = {
         "request_id": "dup-001",
-        "suggestions": [{"symbol": "PLAN1", "action": "comprar", "quantity": 1, "price": 10}],
+        "suggestions": [
+            {"symbol": "PLAN1", "action": "comprar", "quantity": 1, "price": 10}
+        ],
         "options": FAKE_OPTIONS,
     }
     resp = client.post("/api/portfolio/rebalance/apply", headers=headers, json=body)

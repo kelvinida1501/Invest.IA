@@ -5,7 +5,12 @@ def test_create_and_get_asset(client):
     # create new asset
     resp = client.post(
         "/api/assets",
-        json={"symbol": "TEST3", "name": "Test Asset", "currency": "usd", "class": "acao"},
+        json={
+            "symbol": "TEST3",
+            "name": "Test Asset",
+            "currency": "usd",
+            "class": "acao",
+        },
     )
     assert resp.status_code == 201
     payload = resp.json()

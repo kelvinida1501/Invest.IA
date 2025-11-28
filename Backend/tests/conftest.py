@@ -10,6 +10,7 @@ from passlib.hash import bcrypt
 
 # Stub yfinance if not installed (evita falha de import nos testes offline)
 if "yfinance" not in sys.modules:
+
     class _DummyHistory:
         empty = True
 
@@ -44,9 +45,7 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
-TestingSessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=engine
-)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def _override_get_db(db_session):

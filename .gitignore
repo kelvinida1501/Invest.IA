@@ -9,9 +9,14 @@ venv/
 
 # Backend testes
 Backend/.coverage
+Backend/.venv*/
+Backend/coverage.xml
 
 # Frontend testes
 Frontend/coverage/
+
+# Root venvs
+.venv*/
 
 # Infra exports 
 .aws/

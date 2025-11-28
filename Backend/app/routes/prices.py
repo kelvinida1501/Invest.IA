@@ -164,7 +164,8 @@ def refresh_quotes(
         db.flush()
 
     quotes = {
-        symbol: _serialize_quote(asset, fx_cache) for symbol, asset in symbol_map.items()
+        symbol: _serialize_quote(asset, fx_cache)
+        for symbol, asset in symbol_map.items()
     }
     return {"quotes": quotes}
 
@@ -200,7 +201,8 @@ def refresh_all_quotes(
 
     return {
         "quotes": {
-            symbol: _serialize_quote(asset, fx_cache) for symbol, asset in assets.items()
+            symbol: _serialize_quote(asset, fx_cache)
+            for symbol, asset in assets.items()
         }
     }
 

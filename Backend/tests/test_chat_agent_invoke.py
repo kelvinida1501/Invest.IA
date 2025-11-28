@@ -97,9 +97,7 @@ def test_invoke_openai_happy_path(monkeypatch):
     client = DummyHttpClient({"choices": [{"message": {"content": " resposta "}}]})
     agent._http_client = client
 
-    prompt_value = DummyPromptValue(
-        [DummySystem("s"), DummyHuman("u"), DummyAI("a")]
-    )
+    prompt_value = DummyPromptValue([DummySystem("s"), DummyHuman("u"), DummyAI("a")])
 
     reply = agent._invoke_openai(prompt_value)
     assert reply == "resposta"
@@ -120,4 +118,3 @@ def test_invoke_openai_requires_choices(monkeypatch):
 
     with pytest.raises(ValueError):
         agent._invoke_openai(prompt_value)
-

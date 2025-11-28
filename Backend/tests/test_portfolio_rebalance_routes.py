@@ -143,11 +143,15 @@ def test_portfolio_rebalance_apply_happy_path(client, user_token, monkeypatch):
             },
         },
     )
-    monkeypatch.setattr(portfolio_route, "record_transaction", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        portfolio_route, "record_transaction", lambda *args, **kwargs: None
+    )
 
     body = {
         "request_id": "req-1",
-        "suggestions": [{"symbol": "PLAN1", "action": "comprar", "quantity": 1, "price": 10}],
+        "suggestions": [
+            {"symbol": "PLAN1", "action": "comprar", "quantity": 1, "price": 10}
+        ],
         "options": {
             "profile_override": None,
             "allow_sells": True,

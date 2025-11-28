@@ -7,10 +7,12 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 import globals from 'globals';
 
 export default [
+  {
+    ignores: ['**/node_modules/**', '**/dist/**', '**/coverage/**'],
+  },
   js.configs.recommended,
   {
     files: ['**/*.{ts,tsx,js,jsx}'],
-    ignores: ['node_modules', 'dist'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -21,7 +23,8 @@ export default [
       
       globals: {
         ...globals.browser,
-        ...globals.node
+        ...globals.node,
+        ...globals.vitest
       }
     },
     plugins: {

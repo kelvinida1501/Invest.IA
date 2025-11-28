@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-
 from app.services import chat_agent
 from app.db.models import User, Portfolio, Holding, Asset
 
@@ -24,7 +22,9 @@ def test_build_portfolio_observation_with_holdings(db_session, monkeypatch):
     db_session.add(user)
     db_session.commit()
     portfolio = Portfolio(user_id=user.id, name="P")
-    asset = Asset(symbol="ABC", name="ABC", class_="acao", currency="USD", last_quote_price=10.0)
+    asset = Asset(
+        symbol="ABC", name="ABC", class_="acao", currency="USD", last_quote_price=10.0
+    )
     holding = Holding(portfolio=portfolio, asset=asset, quantity=1.0, avg_price=5.0)
     db_session.add_all([portfolio, asset, holding])
     db_session.commit()

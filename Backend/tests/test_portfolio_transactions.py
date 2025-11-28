@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.db.models import Asset, Portfolio, Transaction
+from app.db.models import Asset, Transaction
 from app.services.portfolio_utils import get_or_create_default_portfolio
 
 
@@ -27,4 +27,4 @@ def test_portfolio_transactions_list(client, user_token, db_session):
     assert resp.status_code == 200
     body = resp.json()
     assert isinstance(body, dict)
-    assert (body.get("items") or [])
+    assert body.get("items") or []

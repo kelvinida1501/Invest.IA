@@ -5,6 +5,7 @@ Revises: 20251004_02_add_purchase_date
 Create Date: 2025-10-04
 
 """
+# flake8: noqa
 
 from alembic import op
 import sqlalchemy as sa

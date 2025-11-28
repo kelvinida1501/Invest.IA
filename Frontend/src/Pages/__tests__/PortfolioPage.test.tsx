@@ -29,16 +29,21 @@ vi.mock('../AppLayout', () => ({
   useAppLayoutContext: () => contextState.value,
 }));
 
-vi.mock('../../Components/HoldingsList', () => ({
-  __esModule: true,
-  default: (props: any) => {
+vi.mock('../../Components/HoldingsList', () => {
+  const MockHoldings = (props: any) => {
     lastHoldingsProps = props;
+    const { onRegisterSearchTrigger } = props;
     React.useEffect(() => {
-      props.onRegisterSearchTrigger?.(() => {});
-    }, []);
+      onRegisterSearchTrigger?.(() => {});
+    }, [onRegisterSearchTrigger]);
     return <div data-testid="holdings-list" />;
-  },
-}));
+  };
+
+  return {
+    __esModule: true,
+    default: MockHoldings,
+  };
+});
 
 vi.mock('../../Components/PortfolioEvolutionChart', () => ({
   __esModule: true,

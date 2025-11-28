@@ -16,6 +16,7 @@ from app.services.portfolio_utils import (
 def _today_utc() -> date:
     return datetime.now(timezone.utc).date()
 
+
 router = APIRouter(prefix="/holdings", tags=["holdings"])
 
 

@@ -241,7 +241,9 @@ def rebalance_portfolio(
         for cls, deficit_value in deficits:
             weight_value = preference_weights.get(cls, deficit_value)
             class_buy_alloc[cls] = (
-                (weight_value / weighted_total) * buy_budget if weighted_total > 0 else 0.0
+                (weight_value / weighted_total) * buy_budget
+                if weighted_total > 0
+                else 0.0
             )
     if total_sell > 0 and sell_budget > 0:
         for cls, surplus_value in surpluses:
@@ -382,9 +384,7 @@ def rebalance_portfolio(
     suggestions.sort(key=lambda s: abs(s.value), reverse=True)
 
     if skipped_min_trade:
-        note_msg = (
-            f"Ajustes abaixo do valor minimo por ordem (R$ {min_trade_value:,.2f}) foram ignorados."
-        )
+        note_msg = f"Ajustes abaixo do valor minimo por ordem (R$ {min_trade_value:,.2f}) foram ignorados."
         if note_msg not in notes:
             notes.append(note_msg)
 
