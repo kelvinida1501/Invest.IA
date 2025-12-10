@@ -7,7 +7,6 @@ import {
   AllocationResponse,
   PortfolioSummary,
 } from '../types/portfolio';
-import UpdateBadge from './UpdateBadge';
 
 const MODE_OPTIONS: Array<{ value: 'class' | 'asset'; label: string }> = [
   { value: 'class', label: 'Por classe' },
@@ -154,7 +153,6 @@ export default function AllocationPanel({ refreshKey, summary }: Props) {
             ))}
           </div>
         </div>
-        <UpdateBadge asOf={allocation?.as_of ?? summary?.as_of ?? null} loading={loading} />
       </div>
 
       {mode === 'asset' && availableClasses.length > 0 && (

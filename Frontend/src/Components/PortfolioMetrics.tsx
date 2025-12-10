@@ -1,6 +1,5 @@
 import React from 'react';
 import { PortfolioSummary } from '../types/portfolio';
-import UpdateBadge from './UpdateBadge';
 
 type Props = {
   summary: PortfolioSummary | null;
@@ -87,7 +86,6 @@ export default function PortfolioMetrics({ summary, loading }: Props) {
       <div className="card-header">
         <div className="card-header-left">
           <h2>Indicadores gerais</h2>
-          <UpdateBadge asOf={summary?.as_of ?? null} loading={loading} />
         </div>
       </div>
 
