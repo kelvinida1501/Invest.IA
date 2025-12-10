@@ -50,6 +50,8 @@ Regras:
 - Se alguma informacao nao estiver disponivel, explique o que falta ou como o usuario pode atualizar os dados.
 """.strip()
 
+NEWS_OBSERVATION_DESCRIPTION = "Noticias recentes relacionadas aos ativos do usuario."
+
 
 @dataclass
 class ToolObservation:
@@ -408,7 +410,7 @@ def _build_news_observation(symbols: Iterable[str]) -> ToolObservation:
     if not symbols_list:
         return ToolObservation(
             name="market_news",
-            description="Noticias recentes relacionadas aos ativos do usuario.",
+            description=NEWS_OBSERVATION_DESCRIPTION,
             content="Nao ha ativos na carteira para buscar noticias.",
             data={"items": []},
         )
@@ -426,7 +428,7 @@ def _build_news_observation(symbols: Iterable[str]) -> ToolObservation:
     ) as exc:  # pragma: no cover - defensive fallback para ambientes offline
         return ToolObservation(
             name="market_news",
-            description="Noticias recentes relacionadas aos ativos do usuario.",
+            description=NEWS_OBSERVATION_DESCRIPTION,
             content="Falha ao consultar noticias recentes.",
             data={"items": [], "error": str(exc)},
         )
@@ -435,7 +437,7 @@ def _build_news_observation(symbols: Iterable[str]) -> ToolObservation:
     if not items:
         return ToolObservation(
             name="market_news",
-            description="Noticias recentes relacionadas aos ativos do usuario.",
+            description=NEWS_OBSERVATION_DESCRIPTION,
             content="Nenhuma noticia recente encontrada nas ultimas 72 horas.",
             data={"items": []},
         )
@@ -454,7 +456,7 @@ def _build_news_observation(symbols: Iterable[str]) -> ToolObservation:
 
     return ToolObservation(
         name="market_news",
-        description="Noticias recentes relacionadas aos ativos do usuario.",
+        description=NEWS_OBSERVATION_DESCRIPTION,
         content="\n".join(lines),
         data={
             "items": items,

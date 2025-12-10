@@ -1859,19 +1859,53 @@ button.ghost:hover,
 /* Responsive tweaks --------------------------------------------------------- */
 @media (max-width: 720px) {
   body { font-size: 14px; }
+  .app-shell {
+    padding: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .app-sidebar {
+    width: 100%;
+    max-width: 100%;
+    position: static;
+  }
+  .app-main { gap: var(--space-3); }
+  .app-content { gap: var(--space-3); }
   .page-header { flex-direction: column; align-items: flex-start; }
-  .card { padding: var(--space-4); }
+  .card { padding: var(--space-4); gap: var(--space-3); }
   .auth-card { padding: var(--space-5) var(--space-4); }
   .dashboard-grid,
   .dashboard-row,
-  .page-grid { grid-template-columns: 1fr; }
+  .page-grid,
+  .profile-grid { grid-template-columns: 1fr; }
+  .page-grid,
+  .profile-grid,
+  .dashboard-grid { display: flex; flex-direction: column; }
+  .app-main,
+  .app-content,
+  .app-sidebar,
+  .card { width: 100%; }
+  .card.full { grid-column: auto; }
+  .card-header { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
   .holdings-form { padding: var(--space-3); }
   .transactions-toolbar { padding: var(--space-3); }
+  .transactions-filters { grid-template-columns: 1fr; }
+  .filter-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .transactions-summary { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
   .app-header { gap: var(--space-2); }
   .user-pill { flex-wrap: wrap; gap: var(--space-2); }
+  .positions-toolbar,
+  .holdings-toolbar { flex-direction: column; align-items: flex-start; }
+  .form-row { flex-direction: column; align-items: stretch; }
+  .evolution-toolbar { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
   .series-toggles { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+  .chip-group { width: 100%; overflow-x: auto; padding-bottom: 2px; }
+  .chart-wrapper { padding: var(--space-3); }
+  .table-wrap { overflow-x: auto; }
   .chat-widget { right: var(--space-4); bottom: var(--space-4); }
   .chat-panel { width: min(100%, 340px); }
+  .modal-card { width: 100%; }
 }
 
 .card.limit-rows-4 {

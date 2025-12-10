@@ -1,4 +1,5 @@
 from datetime import datetime, date, timezone
+from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, condecimal, confloat
@@ -19,23 +20,25 @@ def _today_utc() -> date:
 
 router = APIRouter(prefix="/holdings", tags=["holdings"])
 
+ERROR_HOLDING_NOT_FOUND = "Holding nao encontrada"
+
 
 class HoldingCreate(BaseModel):
     asset_id: int
     quantity: confloat(gt=0)
-    avg_price: condecimal(gt=0)
+    avg_price: condecimal(gt=Decimal("0"))
     purchase_date: date | None = None
 
 
 class HoldingUpdate(BaseModel):
     quantity: confloat(gt=0)
-    avg_price: condecimal(gt=0)
+    avg_price: condecimal(gt=Decimal("0"))
     purchase_date: date | None = None
 
 
 class HoldingSell(BaseModel):
     quantity: confloat(gt=0)
-    price: condecimal(gt=0)
+    price: condecimal(gt=Decimal("0"))
     sale_date: date
 
 
@@ -139,7 +142,7 @@ def update_holding(
         .first()
     )
     if not holding:
-        raise HTTPException(status_code=404, detail="Holding nao encontrada")
+        raise HTTPException(status_code=404, detail=ERROR_HOLDING_NOT_FOUND)
 
     try:
         refresh_asset_quote(db, holding.asset, force=True)
@@ -218,7 +221,7 @@ def sell_holding(
         .first()
     )
     if not holding:
-        raise HTTPException(status_code=404, detail="Holding nao encontrada")
+        raise HTTPException(status_code=404, detail=ERROR_HOLDING_NOT_FOUND)
 
     if qty > float(holding.quantity):
         raise HTTPException(
@@ -259,7 +262,7 @@ def delete_holding(
         .first()
     )
     if not holding:
-        raise HTTPException(status_code=404, detail="Holding nao encontrada")
+        raise HTTPException(status_code=404, detail=ERROR_HOLDING_NOT_FOUND)
 
     db.delete(holding)
     db.commit()

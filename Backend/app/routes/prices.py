@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from datetime import date as date_type
 from typing import Iterable, Dict, Tuple
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, condecimal, field_validator
@@ -50,7 +51,7 @@ def upsert_price_row(
 class PriceUpsert(BaseModel):
     symbol: str
     date: str  # "YYYY-MM-DD"
-    close: condecimal(gt=0)
+    close: condecimal(gt=Decimal("0"))
 
     @field_validator("symbol")
     def normalize_symbol(cls, value: str) -> str:

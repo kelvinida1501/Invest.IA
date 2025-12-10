@@ -103,6 +103,7 @@ type Props = {
 };
 
 export default function TransactionsHistory({ refreshKey = 0, onChange }: Props) {
+  const todayStr = React.useMemo(() => toInputDate(new Date()), []);
   const defaultFilters = React.useMemo<Filters>(
     () => ({
       start: '',
@@ -244,6 +245,12 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
 
     if (Number.isNaN(quantity) || quantity <= 0) {
       setEditError('Quantidade deve ser maior que zero.');
+      setSavingEdit(false);
+      return;
+    }
+
+    if (editForm.executed_at && editForm.executed_at > todayStr) {
+      setEditError('A data não pode ser futura.');
       setSavingEdit(false);
       return;
     }
@@ -507,6 +514,7 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
                     className="input"
                     type="date"
                     value={editForm.executed_at}
+                    max={todayStr}
                     onChange={(evt) =>
                       setEditForm((prev) => ({ ...prev, executed_at: evt.target.value }))
                     }

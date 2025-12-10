@@ -6,6 +6,9 @@ from typing import Dict, List, Sequence, Tuple
 
 QUESTIONNAIRE_VERSION = "2025-10-31"
 SCORE_VERSION = "2025-10-31"
+GROUP_TOLERANCE = "Tolerância a risco"
+GROUP_CAPACITY = "Capacidade financeira"
+GROUP_EXPERIENCE = "Experiência"
 
 
 @dataclass(frozen=True)
@@ -59,7 +62,7 @@ QUESTIONS: Sequence[Question] = (
     Question(
         id="tolerance",
         title="Tolerância a perdas",
-        group="Tolerância a risco",
+        group=GROUP_TOLERANCE,
         prompt="Qual a perda máxima em 12 meses com a qual você se sentiria confortável?",
         weight=18,
         scale=(
@@ -73,7 +76,7 @@ QUESTIONS: Sequence[Question] = (
     Question(
         id="reaction",
         title="Reação a quedas",
-        group="Tolerância a risco",
+        group=GROUP_TOLERANCE,
         prompt="Se sua carteira caísse 15% em um mês, qual seria a sua reação provável?",
         weight=15,
         scale=(
@@ -87,7 +90,7 @@ QUESTIONS: Sequence[Question] = (
     Question(
         id="income",
         title="Estabilidade da renda",
-        group="Capacidade financeira",
+        group=GROUP_CAPACITY,
         prompt="Como você descreveria a estabilidade da sua renda atual?",
         weight=10,
         scale=(
@@ -101,7 +104,7 @@ QUESTIONS: Sequence[Question] = (
     Question(
         id="emergency",
         title="Reserva de emergência",
-        group="Capacidade financeira",
+        group=GROUP_CAPACITY,
         prompt="Sua reserva de emergência cobre quantos meses do seu custo de vida?",
         weight=10,
         scale=(
@@ -115,7 +118,7 @@ QUESTIONS: Sequence[Question] = (
     Question(
         id="liquidity",
         title="Necessidade de liquidez",
-        group="Capacidade financeira",
+        group=GROUP_CAPACITY,
         prompt="Qual o nível de necessidade de resgates rápidos dos investimentos?",
         weight=10,
         scale=(
@@ -129,7 +132,7 @@ QUESTIONS: Sequence[Question] = (
     Question(
         id="knowledge",
         title="Conhecimento sobre investimentos",
-        group="Experiência",
+        group=GROUP_EXPERIENCE,
         prompt="Como você avalia seu conhecimento sobre investimentos?",
         weight=10,
         scale=(
@@ -151,7 +154,7 @@ QUESTIONS: Sequence[Question] = (
     Question(
         id="diversification",
         title="Diversificação desejada",
-        group="Experiência",
+        group=GROUP_EXPERIENCE,
         prompt="Você prefere concentrar ou diversificar seus investimentos?",
         weight=4,
         scale=(
@@ -165,7 +168,7 @@ QUESTIONS: Sequence[Question] = (
     Question(
         id="international",
         title="Abertura a ativos internacionais e cripto",
-        group="Experiência",
+        group=GROUP_EXPERIENCE,
         prompt="Qual seu interesse em investir fora do Brasil ou em criptoativos?",
         weight=2,
         scale=(

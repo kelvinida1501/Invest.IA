@@ -14,6 +14,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from .base import Base
 
+CASCADE_ALL_DELETE_ORPHAN = "all, delete-orphan"
+FK_USERS_ID = "users.id"
+FK_ASSETS_ID = "assets.id"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -24,16 +28,16 @@ class User(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     portfolios = relationship(
-        "Portfolio", back_populates="user", cascade="all, delete-orphan"
+        "Portfolio", back_populates="user", cascade=CASCADE_ALL_DELETE_ORPHAN
     )
     risk_profile = relationship(
         "RiskProfile",
         back_populates="user",
         uselist=False,
-        cascade="all, delete-orphan",
+        cascade=CASCADE_ALL_DELETE_ORPHAN,
     )
     chat_sessions = relationship(
-        "ChatSession", back_populates="user", cascade="all, delete-orphan"
+        "ChatSession", back_populates="user", cascade=CASCADE_ALL_DELETE_ORPHAN
     )
 
 
@@ -51,23 +55,23 @@ class Asset(Base):
     supports_fractional = Column(Boolean, nullable=False, default=True)
 
     prices = relationship(
-        "AssetPrice", back_populates="asset", cascade="all, delete-orphan"
+        "AssetPrice", back_populates="asset", cascade=CASCADE_ALL_DELETE_ORPHAN
     )
 
 
 class Portfolio(Base):
     __tablename__ = "portfolios"
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    user_id = Column(Integer, ForeignKey(FK_USERS_ID, ondelete="CASCADE"))
     name = Column(String, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="portfolios")
     holdings = relationship(
-        "Holding", back_populates="portfolio", cascade="all, delete-orphan"
+        "Holding", back_populates="portfolio", cascade=CASCADE_ALL_DELETE_ORPHAN
     )
     transactions = relationship(
-        "Transaction", back_populates="portfolio", cascade="all, delete-orphan"
+        "Transaction", back_populates="portfolio", cascade=CASCADE_ALL_DELETE_ORPHAN
     )
 
 
@@ -79,12 +83,12 @@ class Holding(Base):
             "portfolio_id",
             "asset_id",
             "purchase_date",
-            name="uq_holdings_portfolio_asset_date",
-        ),
+        name="uq_holdings_portfolio_asset_date",
+    ),
     )
     id = Column(Integer, primary_key=True)
     portfolio_id = Column(Integer, ForeignKey("portfolios.id", ondelete="CASCADE"))
-    asset_id = Column(Integer, ForeignKey("assets.id", ondelete="RESTRICT"))
+    asset_id = Column(Integer, ForeignKey(FK_ASSETS_ID, ondelete="RESTRICT"))
     quantity = Column(Float, nullable=False)
     avg_price = Column(Float, nullable=False)
     purchase_date = Column(Date, nullable=True)
@@ -102,7 +106,7 @@ class Transaction(Base):
         Integer, ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False
     )
     asset_id = Column(
-        Integer, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
+        Integer, ForeignKey(FK_ASSETS_ID, ondelete="CASCADE"), nullable=False
     )
     type = Column(String, nullable=False)  # buy|sell
     quantity = Column(Float, nullable=False)
@@ -131,7 +135,7 @@ class AssetPrice(Base):
     __tablename__ = "asset_prices"
     id = Column(Integer, primary_key=True)
     asset_id = Column(
-        Integer, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
+        Integer, ForeignKey(FK_ASSETS_ID, ondelete="CASCADE"), nullable=False
     )
     date = Column(Date, nullable=False)
     open = Column(Float)
@@ -157,7 +161,7 @@ class NewsItem(Base):
 class RiskProfile(Base):
     __tablename__ = "risk_profiles"
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+    user_id = Column(Integer, ForeignKey(FK_USERS_ID, ondelete="CASCADE"), unique=True)
     profile = Column(String, nullable=False)  # conservador|moderado|arrojado
     score = Column(Integer, nullable=False)
     last_updated = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -173,13 +177,13 @@ class ChatSession(Base):
     __tablename__ = "chat_sessions"
     id = Column(Integer, primary_key=True)
     user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        Integer, ForeignKey(FK_USERS_ID, ondelete="CASCADE"), nullable=False
     )
     started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="chat_sessions")
     messages = relationship(
-        "ChatMessage", back_populates="session", cascade="all, delete-orphan"
+        "ChatMessage", back_populates="session", cascade=CASCADE_ALL_DELETE_ORPHAN
     )
 
 

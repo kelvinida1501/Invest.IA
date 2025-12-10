@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, condecimal, confloat
 from sqlalchemy.orm import Session
+from decimal import Decimal
 
 from app.db.base import get_db
 from app.db.models import Asset, Holding
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/import", tags=["import"])
 class HoldingInput(BaseModel):
     symbol: str
     quantity: confloat(gt=0)
-    avg_price: condecimal(gt=0)
+    avg_price: condecimal(gt=Decimal("0"))
 
 
 def get_or_create_asset(db: Session, symbol: str) -> Asset:

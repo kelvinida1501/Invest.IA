@@ -82,7 +82,9 @@ export default function PortfolioPositionsTable({
     holdings.forEach((item) => {
       if (item.class) unique.add(item.class);
     });
-    return Array.from(unique).sort();
+    return Array.from(unique).sort((a, b) =>
+      a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })
+    );
   }, [holdings]);
 
   const filtered = React.useMemo(() => {
