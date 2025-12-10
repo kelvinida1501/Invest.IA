@@ -83,8 +83,8 @@ class Holding(Base):
             "portfolio_id",
             "asset_id",
             "purchase_date",
-        name="uq_holdings_portfolio_asset_date",
-    ),
+            name="uq_holdings_portfolio_asset_date",
+        ),
     )
     id = Column(Integer, primary_key=True)
     portfolio_id = Column(Integer, ForeignKey("portfolios.id", ondelete="CASCADE"))
