@@ -14,7 +14,7 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-grid">
-      <PortfolioMetrics summary={portfolio} loading={portfolioLoading} onRefresh={reloadPortfolio} />
+      <PortfolioMetrics summary={portfolio} loading={portfolioLoading} />
 
       <div className="dashboard-row">
         <section className="card limit-rows-4">

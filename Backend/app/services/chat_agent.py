@@ -26,6 +26,7 @@ from app.db.models import (
     Holding,
     Portfolio,
     RiskProfile,
+    Transaction,
     User,
 )
 from app.services import news
@@ -254,6 +255,115 @@ def _build_portfolio_observation(db: Session, user: User) -> ToolObservation:
     )
 
 
+def _build_transactions_observation(
+    db: Session, user: User, limit: int = 120
+) -> ToolObservation:
+    portfolio = _load_primary_portfolio(db, user.id)
+    if not portfolio:
+        return ToolObservation(
+            name="transactions_summary",
+            description="Resumo de transacoes recentes.",
+            content="Usuario ainda nao possui carteira cadastrada.",
+            data={"transactions": []},
+        )
+
+    rows: List[Transaction] = (
+        db.query(Transaction)
+        .options(joinedload(Transaction.asset))
+        .filter(
+            Transaction.portfolio_id == portfolio.id, Transaction.status == "active"
+        )
+        .order_by(Transaction.executed_at.desc(), Transaction.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+    if not rows:
+        return ToolObservation(
+            name="transactions_summary",
+            description="Resumo de transacoes recentes.",
+            content="Nenhuma transacao ativa registrada.",
+            data={"transactions": []},
+        )
+
+    symbol_totals: Dict[str, Dict[str, float]] = {}
+    buys_by_date: Dict[str, Dict[str, float]] = {}  # date -> symbol -> total buy
+    sells_by_date: Dict[str, Dict[str, float]] = {}  # date -> symbol -> total sell
+    tx_payload: List[Dict[str, Any]] = []
+
+    for tx in rows:
+        symbol = tx.asset.symbol if tx.asset else (tx.asset_id or "ativo")
+        date_key = (
+            tx.executed_at.date().isoformat() if tx.executed_at else "desconhecida"
+        )
+        qty = float(tx.quantity)
+        total = float(tx.total) if tx.total is not None else float(tx.price) * qty
+        typ = (tx.type or "").lower()
+
+        if symbol not in symbol_totals:
+            symbol_totals[symbol] = {
+                "buys_total": 0.0,
+                "buys_qty": 0.0,
+                "sells_total": 0.0,
+                "sells_qty": 0.0,
+            }
+        agg = symbol_totals[symbol]
+        if typ == "buy":
+            agg["buys_total"] += total
+            agg["buys_qty"] += qty
+            buys_by_date.setdefault(date_key, {}).setdefault(symbol, 0.0)
+            buys_by_date[date_key][symbol] += total
+        elif typ == "sell":
+            agg["sells_total"] += total
+            agg["sells_qty"] += qty
+            sells_by_date.setdefault(date_key, {}).setdefault(symbol, 0.0)
+            sells_by_date[date_key][symbol] += total
+
+        tx_payload.append(
+            {
+                "id": tx.id,
+                "symbol": symbol,
+                "type": typ,
+                "quantity": qty,
+                "total": total,
+                "price": float(tx.price) if tx.price is not None else None,
+                "executed_at": tx.executed_at.isoformat() if tx.executed_at else None,
+                "kind": tx.kind,
+                "status": tx.status,
+            }
+        )
+
+    lines: List[str] = ["Resumo de transacoes (ultimas ativas):"]
+    for symbol, agg in list(symbol_totals.items())[:8]:
+        net = agg["buys_total"] - agg["sells_total"]
+        lines.append(
+            f"- {symbol}: compras {_format_currency_brl(agg['buys_total'])} (qty {agg['buys_qty']:.2f}); "
+            f"vendas {_format_currency_brl(agg['sells_total'])} (qty {agg['sells_qty']:.2f}); "
+            f"aporte liquido {_format_currency_brl(net)}."
+        )
+
+    recent_dates = sorted(buys_by_date.keys(), reverse=True)[:5]
+    if recent_dates:
+        lines.append("Compras por data (ultimas):")
+        for date_key in recent_dates:
+            parts = []
+            for sym, val in buys_by_date[date_key].items():
+                parts.append(f"{sym}: {_format_currency_brl(val)}")
+            lines.append(f"  {date_key}: " + "; ".join(parts))
+
+    return ToolObservation(
+        name="transactions_summary",
+        description="Transacoes recentes com compras/vendas por ativo e data.",
+        content="\n".join(lines),
+        data={
+            "transactions": tx_payload,
+            "symbol_totals": symbol_totals,
+            "buys_by_date": buys_by_date,
+            "sells_by_date": sells_by_date,
+        },
+    )
+
+
 def _build_risk_profile_observation(db: Session, user: User) -> ToolObservation:
     profile = db.query(RiskProfile).filter(RiskProfile.user_id == user.id).first()
     if not profile:
@@ -455,6 +565,7 @@ class ChatAgent:
         observations: List[ToolObservation] = [
             portfolio_obs,
             _build_risk_profile_observation(db, user),
+            _build_transactions_observation(db, user),
         ]
         portfolio_data = portfolio_obs.data.get("portfolio")
         symbols = (

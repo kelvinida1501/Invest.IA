@@ -1,6 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import PortfolioMetrics from '../PortfolioMetrics';
 import type { PortfolioSummary } from '../../types/portfolio';
 
@@ -58,21 +57,19 @@ const buildSummary = (): PortfolioSummary => ({
 
 describe('PortfolioMetrics', () => {
   it('exibe placeholder quando não há dados', () => {
-    render(<PortfolioMetrics summary={null} loading={false} onRefresh={vi.fn()} />);
+    render(<PortfolioMetrics summary={null} loading={false} />);
     expect(screen.getByText(/Sem dados de carteira/i)).toBeInTheDocument();
   });
 
   it('mostra estado de carregamento sem summary', () => {
-    render(<PortfolioMetrics summary={null} loading onRefresh={vi.fn()} />);
+    render(<PortfolioMetrics summary={null} loading />);
     expect(screen.getByText(/Carregando carteira/i)).toBeInTheDocument();
   });
 
-  it('renderiza os indicadores e aciona refresh', async () => {
-    const onRefresh = vi.fn();
+  it('renderiza os indicadores sem dividendos', () => {
     const summary = buildSummary();
-    const user = userEvent.setup();
 
-    render(<PortfolioMetrics summary={summary} loading={false} onRefresh={onRefresh} />);
+    render(<PortfolioMetrics summary={summary} loading={false} />);
 
     const investedMetric = screen.getByText(/Investido/i).closest('.metric');
     expect(investedMetric).not.toBeNull();
@@ -93,8 +90,6 @@ describe('PortfolioMetrics', () => {
     const positionsMetric = screen.getByText(/Ativos na carteira/i).closest('.metric');
     expect(positionsMetric).not.toBeNull();
     expect(within(positionsMetric as HTMLElement).getByText('2')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /Atualizar/i }));
-    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Dividendos YTD/i)).toBeNull();
   });
 });

@@ -146,13 +146,6 @@ export default function HoldingsList({
   const [sellError, setSellError] = useState<string | null>(null);
   const [sellLoading, setSellLoading] = useState(false);
 
-  const [historyTarget, setHistoryTarget] = useState<Holding | null>(null);
-  const [historyData, setHistoryData] = useState<
-    Array<{ date: string; close: number; source?: string; price_type?: string }>
-  >([]);
-  const [historyError, setHistoryError] = useState<string | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
   const [quoteMap, setQuoteMap] = useState<Record<string, QuoteState>>({});
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -471,23 +464,6 @@ export default function HoldingsList({
     setSearchResults([]);
   };
 
-  const openHistory = (holding: Holding) => {
-    setHistoryTarget(holding);
-    setHistoryData([]);
-    setHistoryError(null);
-    setHistoryLoading(true);
-    api
-      .get(`/prices/history/${normalizeSymbol(holding.symbol)}`)
-      .then((res) => {
-        setHistoryData(res.data ?? []);
-      })
-      .catch((err) => {
-        console.error('Erro ao carregar historico:', err);
-        setHistoryError(err?.response?.data?.detail || 'Falha ao obter historico.');
-      })
-      .finally(() => setHistoryLoading(false));
-  };
-
   const holdingsSymbols = useMemo(
     () => holdings.map((h) => normalizeSymbol(h.symbol)),
     [holdings]
@@ -618,6 +594,26 @@ export default function HoldingsList({
                 }
               }
 
+              const isEditing = editing === h.holding_id;
+              let editPreview: string | null = null;
+              if (isEditing) {
+                const nextQty = toNumber(editQty);
+                const nextTotal = toNumber(editPrice);
+                if (Number.isFinite(nextQty) && Number.isFinite(nextTotal) && nextQty > 0) {
+                  const deltaQty = nextQty - h.quantity;
+                  if (Math.abs(deltaQty) > 1e-9) {
+                    const nextAvg = nextTotal / nextQty;
+                    const appliedPrice = deltaQty > 0 ? nextAvg : h.avg_price;
+                    const deltaAbs = Math.abs(deltaQty);
+                    const deltaTotal = deltaAbs * appliedPrice;
+                    const actionLabel = deltaQty > 0 ? 'Compra automática' : 'Venda automática';
+                    editPreview = `${actionLabel}: ${formatQuantityValue(deltaAbs)} @ ${currencyFormatter.format(
+                      appliedPrice
+                    )} (total ${currencyFormatter.format(deltaTotal)})`;
+                  }
+                }
+              }
+
               return (
                 <tr key={h.holding_id}>
                   <td>
@@ -646,7 +642,7 @@ export default function HoldingsList({
                   )}
                 </td>
                   <td>
-                    {editing === h.holding_id ? (
+                    {isEditing ? (
                       <input
                         className="input"
                         inputMode="decimal"
@@ -658,7 +654,7 @@ export default function HoldingsList({
                     )}
                   </td>
                   <td>
-                    {editing === h.holding_id ? (
+                    {isEditing ? (
                       <input
                         className="input"
                         inputMode="decimal"
@@ -680,8 +676,9 @@ export default function HoldingsList({
                   <td>{h.pct.toFixed(1)}%</td>
                   <td>{formatDateLabel(h.purchase_date)}</td>
                   <td>
-                    {editing === h.holding_id ? (
+                    {isEditing ? (
                       <div className="actions-row">
+                        {editPreview ? <p className="muted small">{editPreview}</p> : null}
                         <button className="btn btn-primary" onClick={() => saveEdit(h.holding_id)}>
                           Salvar
                         </button>
@@ -697,9 +694,6 @@ export default function HoldingsList({
                           disabled={info.loading}
                         >
                           {info.loading ? 'Atualizando...' : 'Atualizar'}
-                        </button>
-                        <button className="btn btn-ghost" onClick={() => openHistory(h)}>
-                          Ver historico
                         </button>
                         <button className="btn btn-secondary" onClick={() => openSellModal(h)}>
                           Vender
@@ -826,42 +820,6 @@ export default function HoldingsList({
               >
                 Cancelar
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {historyTarget && (
-        <div className="modal-overlay">
-          <div className="modal-card">
-            <div className="modal-header">
-              <h3>Historico - {historyTarget.symbol}</h3>
-              <button className="modal-close" onClick={() => setHistoryTarget(null)}>
-                x
-              </button>
-            </div>
-            <div className="modal-body">
-              {historyLoading && <p className="muted">Carregando historico...</p>}
-              {historyError && <p className="error">{historyError}</p>}
-              {!historyLoading && !historyError && (
-                <div className="history-list">
-                  {historyData.length > 0 && (
-                    <p className="muted" style={{ marginBottom: 8 }}>
-                      Valores de {historyData[0].price_type ?? 'fechamento'} fornecidos por{' '}
-                      {historyData[0].source ?? 'Yahoo Finance'}.
-                    </p>
-                  )}
-                  {historyData.length === 0 && (
-                    <p className="muted">Sem registros armazenados.</p>
-                  )}
-                  {historyData.map((row) => (
-                    <div key={row.date} className="history-item">
-                      <span>{formatDateLabel(row.date)}</span>
-                      <strong>{currencyFormatter.format(Number(row.close))}</strong>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>

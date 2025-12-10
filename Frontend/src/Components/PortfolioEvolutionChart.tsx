@@ -43,7 +43,7 @@ type SeriesVisibility = {
 };
 
 function formatCurrency(value: number | null | undefined) {
-  if (value == null) return 'R$ 0,00';
+  if (value == null) return 'R$ 0,00';
   return currencyFormatter.format(value);
 }
 
@@ -69,14 +69,14 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   }
 
   return (
-      <div className="tooltip-card">
-        <div className="tooltip-title">
-          {parseDateLocal(label)?.toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric',
-          }) ?? label}
-        </div>
+    <div className="tooltip-card">
+      <div className="tooltip-title">
+        {parseDateLocal(label)?.toLocaleDateString('pt-BR', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+        }) ?? label}
+      </div>
       {payload.map((entry: any) => (
         <div key={entry.name} className="tooltip-row">
           <span>{entry.name}</span>
@@ -213,11 +213,7 @@ export default function PortfolioEvolutionChart({ refreshKey = 0 }: EvolutionPro
           <ResponsiveContainer width="100%" height={360}>
             <AreaChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-              <XAxis
-                dataKey="date"
-                tickFormatter={formatDateLabel}
-                minTickGap={32}
-              />
+              <XAxis dataKey="date" tickFormatter={formatDateLabel} minTickGap={32} />
               <YAxis tickFormatter={(value) => currencyFormatter.format(value)} width={90} />
               <Tooltip content={<CustomTooltip />} />
               <Legend />

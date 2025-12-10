@@ -49,3 +49,7 @@ pgdata/
 .idea/
 .DS_Store
 Thumbs.db
+temp_diagrams/c1.png
+temp_diagrams/c2.png
+temp_diagrams/c3.png
+temp_diagrams/usecase.png

@@ -60,13 +60,6 @@ const CLASS_LABELS: Record<string, string> = {
 const DEFAULT_SLIDER_VALUE = 3;
 const QUESTIONS_PER_STEP = 4;
 
-const BASE_RESTRICTION_OPTIONS = [
-  { id: 'excluir_cripto', label: 'Evitar criptoativos' },
-  { id: 'excluir_armas', label: 'Evitar setor bélico' },
-  { id: 'excluir_tabaco', label: 'Evitar tabaco e jogos' },
-  { id: 'foco_esg', label: 'Priorizar empresas com foco ESG' },
-];
-
 function buildInitialAnswers(questions: RiskQuestion[], existing?: Record<string, number>) {
   const next: Record<string, number> = {};
   questions.forEach((question) => {
@@ -88,11 +81,9 @@ export default function RiskPanel() {
   const [profile, setProfile] = useState<RiskProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [wizardOpen, setWizardOpen] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [restrictions, setRestrictions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -112,7 +103,6 @@ export default function RiskPanel() {
         setProfile(pData);
 
         setAnswers(buildInitialAnswers(qData.questions, pData.answers));
-        setRestrictions(pData.restrictions ?? []);
         setActiveStep(0);
       } catch (err: any) {
         const message =
@@ -133,16 +123,6 @@ export default function RiskPanel() {
     return Math.ceil(questionnaire.questions.length / QUESTIONS_PER_STEP);
   }, [questionnaire]);
 
-  const restrictionOptions = useMemo(() => {
-    const current = new Map(BASE_RESTRICTION_OPTIONS.map((opt) => [opt.id, opt.label]));
-    restrictions.forEach((item) => {
-      if (!current.has(item)) {
-        current.set(item, item);
-      }
-    });
-    return Array.from(current.entries()).map(([id, label]) => ({ id, label }));
-  }, [restrictions]);
-
   const currentQuestions = useMemo(() => {
     if (!questionnaire) return [];
     const start = activeStep * QUESTIONS_PER_STEP;
@@ -153,7 +133,6 @@ export default function RiskPanel() {
   const openWizard = () => {
     if (questionnaire) {
       setAnswers(buildInitialAnswers(questionnaire.questions, profile?.answers));
-      setRestrictions(profile?.restrictions ?? []);
     }
     setActiveStep(0);
     setSaveError(null);
@@ -167,12 +146,6 @@ export default function RiskPanel() {
     }));
   };
 
-  const toggleRestriction = (id: string) => {
-    setRestrictions((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
   const handleSave = async () => {
     if (!questionnaire) return;
     setSaving(true);
@@ -180,7 +153,6 @@ export default function RiskPanel() {
     try {
       const payload = {
         answers,
-        restrictions,
       };
       const { data } = await api.post('/risk', payload);
       const mergedProfile: RiskProfileResponse = {
@@ -296,38 +268,11 @@ export default function RiskPanel() {
                     <tr key={cls}>
                       <td>{CLASS_LABELS[cls] ?? cls.toUpperCase()}</td>
                       <td>{formatPercent(profile.allocation.weights[cls], 1)}</td>
-                      <td>
-                        ±
-                        {formatPercent(profile.allocation.bands?.[cls] ?? 0, 1)}
-                      </td>
+                      <td>{formatPercent(profile.allocation.bands?.[cls] ?? 0, 1)}</td>
                     </tr>
                   ))}
                   </tbody>
                 </table>
-              </div>
-            </section>
-          )}
-
-          {profile?.restrictions && profile.restrictions.length > 0 && (
-            <section style={{ marginTop: 16 }}>
-              <div className="muted" style={{ marginBottom: 4 }}>
-                Restrições registradas
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {profile.restrictions.map((item) => (
-                  <span
-                    key={item}
-                    style={{
-                      background: '#2e3b43',
-                      color: '#fff',
-                      borderRadius: 6,
-                      padding: '4px 10px',
-                      fontSize: 12,
-                    }}
-                  >
-                    {restrictionOptions.find((opt) => opt.id === item)?.label ?? item}
-                  </span>
-                ))}
               </div>
             </section>
           )}
@@ -409,42 +354,7 @@ export default function RiskPanel() {
               );
             })}
           </div>
-
-          {activeStep === totalSteps - 1 && (
-            <section style={{ marginTop: 20 }}>
-              <div className="muted" style={{ marginBottom: 8 }}>
-                Preferências e restrições
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                {restrictionOptions.map((option) => {
-                  const checked = restrictions.includes(option.id);
-                  return (
-                    <label
-                      key={option.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 10px',
-                        borderRadius: 8,
-                        background: checked ? '#1b2c35' : '#0e171d',
-                        border: `1px solid ${checked ? '#1e88e5' : 'rgba(255,255,255,0.06)'}`,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleRestriction(option.id)}
-                      />
-                      <span>{option.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
+          
           <footer
             style={{
               display: 'flex',

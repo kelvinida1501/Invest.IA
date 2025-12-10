@@ -60,11 +60,6 @@ const typeLabels: Record<Transaction['type'], string> = {
   sell: 'Venda',
 };
 
-const currencyFormatter = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-});
-
 function formatQuantityValue(value: number) {
   const abs = Math.abs(value);
   let maxFractionDigits = 2;
@@ -131,7 +126,6 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
   const [editingTx, setEditingTx] = React.useState<Transaction | null>(null);
   const [editForm, setEditForm] = React.useState({
     quantity: '',
-    price: '',
     executed_at: '',
     type: 'buy' as Transaction['type'],
     kind: 'trade' as Transaction['kind'],
@@ -191,7 +185,6 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
     if (editingTx) {
       setEditForm({
         quantity: String(editingTx.quantity),
-        price: String(editingTx.price),
         executed_at: editingTx.executed_at ? editingTx.executed_at.slice(0, 10) : '',
         type: editingTx.type,
         kind: editingTx.kind,
@@ -248,7 +241,6 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
     setEditError(null);
 
     const quantity = Number(editForm.quantity);
-    const price = Number(editForm.price);
 
     if (Number.isNaN(quantity) || quantity <= 0) {
       setEditError('Quantidade deve ser maior que zero.');
@@ -256,15 +248,8 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
       return;
     }
 
-    if (Number.isNaN(price) || price < 0) {
-      setEditError('Preco deve ser zero ou positivo.');
-      setSavingEdit(false);
-      return;
-    }
-
     const payload: Record<string, any> = {
       quantity,
-      price,
       type: editForm.type,
       kind: editForm.kind,
     };
@@ -432,8 +417,6 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
                   <th>Categoria</th>
                   <th>Status</th>
                   <th>Quantidade</th>
-                  <th>Preco</th>
-                  <th>Total</th>
                   <th>Acoes</th>
                 </tr>
               </thead>
@@ -456,8 +439,6 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
                       <span className={`status-badge ${tx.status}`}>{statusLabels[tx.status]}</span>
                     </td>
                     <td>{formatQuantityValue(tx.quantity)}</td>
-                    <td>{currencyFormatter.format(tx.price)}</td>
-                    <td>{currencyFormatter.format(tx.total)}</td>
                     <td>
                       <div className="table-actions">
                         <button
@@ -503,15 +484,15 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
                   onClick={() => setEditingTx(null)}
                 >
                   —
-                </button>
-              </div>
-              <div className="modal-body">
-                <div className="modal-row">
-                  <label>Quantidade</label>
-                  <input
-                    className="input"
-                    type="number"
-                    step="any"
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-row">
+                <label>Quantidade</label>
+                <input
+                  className="input"
+                  type="number"
+                  step="any"
                     min="0"
                     value={editForm.quantity}
                     onChange={(evt) =>
@@ -519,22 +500,10 @@ export default function TransactionsHistory({ refreshKey = 0, onChange }: Props)
                     }
                     required
                   />
-                </div>
-                <div className="modal-row">
-                  <label>Preco</label>
-                  <input
-                    className="input"
-                    type="number"
-                    step="any"
-                    min="0"
-                    value={editForm.price}
-                    onChange={(evt) => setEditForm((prev) => ({ ...prev, price: evt.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="modal-row">
-                  <label>Data</label>
-                  <input
+              </div>
+              <div className="modal-row">
+                <label>Data</label>
+                <input
                     className="input"
                     type="date"
                     value={editForm.executed_at}

@@ -1,9 +1,13 @@
 ﻿import React from 'react';
 import ChatBox from './Chatbox';
 
+type ChatWidgetProps = {
+  userId?: number | null;
+};
+
 const CLOSE_SYMBOL = 'x';
 
-export default function ChatWidget() {
+export default function ChatWidget({ userId = null }: ChatWidgetProps) {
   const [open, setOpen] = React.useState(false);
   const panelRef = React.useRef<HTMLDivElement | null>(null);
   const panelId = React.useId();
@@ -68,7 +72,7 @@ export default function ChatWidget() {
             </button>
           </div>
           <div className="chat-panel-body">
-            <ChatBox />
+            <ChatBox userId={userId} />
           </div>
         </div>
       ) : null}

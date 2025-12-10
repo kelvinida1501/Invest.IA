@@ -5,7 +5,6 @@ import UpdateBadge from './UpdateBadge';
 type Props = {
   summary: PortfolioSummary | null;
   loading: boolean;
-  onRefresh: () => void;
 };
 
 function formatCurrency(value: number, currency: string) {
@@ -29,7 +28,7 @@ function trendClass(value: number | undefined | null) {
   return '';
 }
 
-export default function PortfolioMetrics({ summary, loading, onRefresh }: Props) {
+export default function PortfolioMetrics({ summary, loading }: Props) {
   const baseCurrency = summary?.base_currency ?? 'BRL';
   const kpis = summary?.kpis;
   const itens = summary?.itens ?? [];
@@ -76,11 +75,6 @@ export default function PortfolioMetrics({ summary, loading, onRefresh }: Props)
         trend: kpis.day_change_abs,
       },
       {
-        key: 'dividends',
-        label: 'Dividendos YTD',
-        value: formatCurrency(kpis.dividends_ytd, baseCurrency),
-      },
-      {
         key: 'positions',
         label: 'Ativos na carteira',
         value: itens.length.toString(),
@@ -95,9 +89,6 @@ export default function PortfolioMetrics({ summary, loading, onRefresh }: Props)
           <h2>Indicadores gerais</h2>
           <UpdateBadge asOf={summary?.as_of ?? null} loading={loading} />
         </div>
-        <button className="btn btn-ghost" onClick={onRefresh} disabled={loading}>
-          Atualizar
-        </button>
       </div>
 
       {!summary || !metrics ? (

@@ -139,7 +139,7 @@ export default function AppLayout() {
         </div>
       </div>
 
-      <ChatWidget />
+      <ChatWidget userId={user?.id} />
     </>
   );
 }

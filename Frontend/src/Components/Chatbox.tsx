@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../Api/ApiClient';
 
 type Msg = { from: 'user' | 'bot'; text: string };
@@ -12,20 +12,20 @@ type ChatResponse = {
 const HISTORY_KEY = 'chat_history';
 const SESSION_KEY = 'chat_session_id';
 
-const readHistory = (): Msg[] => {
+const readHistory = (key: string): Msg[] => {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = window.localStorage.getItem(HISTORY_KEY);
+    const raw = window.localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as Msg[]) : [];
   } catch {
     return [];
   }
 };
 
-const readSession = (): number | null => {
+const readSession = (key: string): number | null => {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.localStorage.getItem(SESSION_KEY);
+    const raw = window.localStorage.getItem(key);
     const parsed = raw ? Number(raw) : NaN;
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   } catch {
@@ -33,17 +33,30 @@ const readSession = (): number | null => {
   }
 };
 
-export default function ChatBox() {
+type ChatBoxProps = {
+  userId?: number | null;
+};
+
+export default function ChatBox({ userId = null }: ChatBoxProps) {
+  const userKey = useMemo(() => (userId ? `user_${userId}` : 'anon'), [userId]);
+  const historyStorageKey = useMemo(() => `${HISTORY_KEY}_${userKey}`, [userKey]);
+  const sessionStorageKey = useMemo(() => `${SESSION_KEY}_${userKey}`, [userKey]);
   const [msg, setMsg] = useState('');
-  const [history, setHistory] = useState<Msg[]>(readHistory);
-  const [sessionId, setSessionId] = useState<number | null>(readSession);
+  const [history, setHistory] = useState<Msg[]>(() => readHistory(historyStorageKey));
+  const [sessionId, setSessionId] = useState<number | null>(() => readSession(sessionStorageKey));
   const [loading, setLoading] = useState(false);
   const [fallbackActive, setFallbackActive] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setHistory(readHistory(historyStorageKey));
+    setSessionId(readSession(sessionStorageKey));
+    setFallbackActive(false);
+  }, [historyStorageKey, sessionStorageKey]);
+
+  useEffect(() => {
     try {
-      window.localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      window.localStorage.setItem(historyStorageKey, JSON.stringify(history));
     } catch {
       /* ignore */
     }
@@ -51,15 +64,15 @@ export default function ChatBox() {
     if (el) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [history]);
+  }, [history, historyStorageKey]);
 
   const persistSession = (id: number | null) => {
     if (typeof window === 'undefined') return;
     try {
       if (id) {
-        window.localStorage.setItem(SESSION_KEY, String(id));
+        window.localStorage.setItem(sessionStorageKey, String(id));
       } else {
-        window.localStorage.removeItem(SESSION_KEY);
+        window.localStorage.removeItem(sessionStorageKey);
       }
     } catch {
       /* ignore */
@@ -134,7 +147,7 @@ export default function ChatBox() {
     setFallbackActive(false);
     setSessionId(null);
     try {
-      window.localStorage.removeItem(HISTORY_KEY);
+      window.localStorage.removeItem(historyStorageKey);
     } catch {
       /* ignore */
     }
